@@ -1,0 +1,41 @@
+﻿using System.IO;
+using System.Text.Json;
+
+namespace GTasksBar
+{
+    // This holds the actual data
+    public class AppSettings
+    {
+        public bool UseAcrylic { get; set; } = true;
+        public bool StayOnTop { get; set; } = false;
+        public bool IsLocked { get; set; } = true;
+        public bool EnableGoogleSync { get; set; } = true;
+        public WidgetPosition Position { get; set; } = WidgetPosition.BottomRight;
+    }
+
+    // This manager saves and loads the data
+    public static class AppConfig
+    {
+        private static readonly string SettingsFile = "config.json";
+        public static AppSettings Settings { get; set; } = new AppSettings();
+
+        public static void Load()
+        {
+            if (File.Exists(SettingsFile))
+            {
+                try
+                {
+                    var json = File.ReadAllText(SettingsFile);
+                    Settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                }
+                catch { /* If file is corrupted, it will just use defaults */ }
+            }
+        }
+
+        public static void Save()
+        {
+            var json = JsonSerializer.Serialize(Settings);
+            File.WriteAllText(SettingsFile, json);
+        }
+    }
+}

@@ -11,6 +11,13 @@ namespace GTasksBar
         public bool IsLocked { get; set; } = true;
         public bool EnableGoogleSync { get; set; } = true;
         public WidgetPosition Position { get; set; } = WidgetPosition.BottomRight;
+
+        // --- NEW ADDITIONS ---
+        public bool ShowCompletedTasks { get; set; } = false;
+        public bool LaunchOnStartup { get; set; } = false;
+
+        // 0 = System Default, 1 = Light, 2 = Dark
+        public int AppTheme { get; set; } = 0;
     }
 
     // This manager saves and loads the data
@@ -34,7 +41,10 @@ namespace GTasksBar
 
         public static void Save()
         {
-            var json = JsonSerializer.Serialize(Settings);
+            // Added WriteIndented so the JSON file is easy to read in Notepad!
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            var json = JsonSerializer.Serialize(Settings, options);
+
             File.WriteAllText(SettingsFile, json);
         }
     }

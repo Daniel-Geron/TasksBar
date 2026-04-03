@@ -21,6 +21,8 @@ namespace GTasksBar
     {
         public ObservableCollection<TaskItem> MyTasks { get; set; }
         private WidgetPosition _currentPosition = WidgetPosition.BottomRight;
+        private bool _isOpeningSettings = false;
+        private SettingsWindow _settingsWindow;
         private bool _isCustomDragged = false;
         private double _customLeft = 0;
         private double _customTop = 0;
@@ -32,15 +34,24 @@ namespace GTasksBar
         {
             AppConfig.Load();
 
-            // 1. Apply the system theme (Light/Dark) BEFORE building the UI
-            Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
+            // THE FIX: Apply the SAVED theme, not just the system theme!
+            if (AppConfig.Settings.AppTheme == 1)
+                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
+            else if (AppConfig.Settings.AppTheme == 2)
+                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
+            else
+            {
+                // Only use the System default and the System Watcher if they chose option 0
+                Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
+                Wpf.Ui.Appearance.SystemThemeWatcher.Watch(this);
+            }
 
-            // 2. THE FIX: Explicitly apply the Windows Accent Color globally
+            // Always apply the Windows Accent Color
             Wpf.Ui.Appearance.ApplicationAccentColorManager.ApplySystemAccent();
 
             InitializeComponent();
 
-            // 3. Keep the watcher so it auto-updates if you change colors in Windows settings
+          
             Wpf.Ui.Appearance.SystemThemeWatcher.Watch(this, WindowBackdropType.Mica, true);
 
             // Apply loaded settings to the window
@@ -104,15 +115,23 @@ namespace GTasksBar
 
             MyTasks.Clear();
             var request = _googleTasksService.Tasks.List(_defaultTaskListId);
+
             request.ShowHidden = false;
+
+            // THE FIX: Hook this up to the AppConfig setting instead of hardcoding "false"
+            request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+
             var response = await request.ExecuteAsync();
 
             if (response.Items != null)
             {
                 foreach (var gTask in response.Items)
                 {
-                    // THE FIX: Ignore "Ghost" tasks that have no title!
+                    // Ignore "Ghost" tasks that have no title
                     if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
+
+                    // Optional safeguard: If a completed task somehow slips through, ignore it
+                    if (gTask.Status == "completed") continue;
 
                     var taskItem = new TaskItem
                     {
@@ -127,7 +146,28 @@ namespace GTasksBar
                 }
             }
         }
+        private void UpdatePinIcon()
+        {
+            // If pinned, show a filled pin. If unpinned, show an empty pin outline.
+            PinButton.Icon = new Wpf.Ui.Controls.SymbolIcon(Wpf.Ui.Controls.SymbolRegular.Pin20)
+            {
+                Filled = AppConfig.Settings.StayOnTop
+            };
+        }
 
+        private void PinButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Toggle the setting
+            AppConfig.Settings.StayOnTop = !AppConfig.Settings.StayOnTop;
+
+            // Apply it to the window immediately
+            this.Topmost = AppConfig.Settings.StayOnTop;
+
+            // Update the visual icon
+            UpdatePinIcon();
+
+            // Note: If you have an AppConfig.Save() method, call it here!
+        }
         private async Task TaskItem_PropertyChanged(TaskItem item, string propertyName)
         {
             if (!AppConfig.Settings.EnableGoogleSync || _googleTasksService == null) return;
@@ -270,45 +310,58 @@ namespace GTasksBar
 
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
-            WidgetPosition previousPosition = AppConfig.Settings.Position;
-
-            var settingsWin = new SettingsWindow();
-
-            // 1. Tell Windows this Settings menu belongs to the main app
-            settingsWin.Owner = this;
-
-            // 2. Force the Settings menu to share the "Stay on Top" status so it never hides
-            settingsWin.Topmost = this.Topmost;
-
-            // Now open the window safely!
-            settingsWin.ShowDialog();
-
-            if (previousPosition != AppConfig.Settings.Position)
+            if (_settingsWindow != null && _settingsWindow.IsLoaded)
             {
-                _isCustomDragged = false;
+                _settingsWindow.Focus();
+                return;
             }
 
-            this.WindowBackdropType = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
-            this.Topmost = AppConfig.Settings.StayOnTop;
-            _currentPosition = AppConfig.Settings.Position;
+            _isOpeningSettings = true;
 
-            PlaySlideAnimation();
+            // THE FIX: Remember what the setting was before we opened the menu
+            bool previousShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+
+            _settingsWindow = new SettingsWindow();
+
+            _settingsWindow.Closed += async (s, args) =>
+            {
+                this.WindowBackdropType = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
+                this.Topmost = AppConfig.Settings.StayOnTop;
+                _currentPosition = AppConfig.Settings.Position;
+                UpdatePinIcon();
+                PlaySlideAnimation();
+
+                // THE FIX: If they toggled "Show Completed Tasks", instantly fetch the new list from Google!
+                if (previousShowCompleted != AppConfig.Settings.ShowCompletedTasks)
+                {
+                    await SyncTasksFromGoogle();
+                }
+            };
+
+            _settingsWindow.Show();
+            _isOpeningSettings = false;
         }
         private void TaskTitleInput_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                // 1. Move focus away to trigger the "LostFocus" binding and save to Google
-                FocusManager.SetFocusedElement(FocusManager.GetFocusScope(this), this);
+                // 1. Clear the keyboard focus to force the current task to save
+                Keyboard.ClearFocus();
 
-                // 2. Small delay to let the UI breathe, then open a new task slot
-                Dispatcher.BeginInvoke(new Action(() =>
+                // 2. Wait a split second, then click the "Add Task" button for them
+                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     AddTaskTop_Click(null, null);
                 }), System.Windows.Threading.DispatcherPriority.Background);
 
                 e.Handled = true;
             }
+        }
+        private void RootGrid_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Same kill-switch for when you click the empty space inside the app
+            FocusManager.SetFocusedElement(FocusManager.GetFocusScope(this), null);
+            Keyboard.ClearFocus();
         }
         private void Window_StateChanged(object sender, EventArgs e)
         {
@@ -334,8 +387,14 @@ namespace GTasksBar
         }
         private void Window_Deactivated(object sender, EventArgs e)
         {
-            // If Stay on Top is true, we refuse to minimize!
-            if (!AppConfig.Settings.StayOnTop)
+            FocusManager.SetFocusedElement(FocusManager.GetFocusScope(this), null);
+            Keyboard.ClearFocus();
+
+            // Check if the settings window is currently open
+            bool isSettingsOpen = _settingsWindow != null && _settingsWindow.IsLoaded;
+
+            // THE FIX: Only minimize if StayOnTop is false AND the settings window isn't open
+            if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings && !isSettingsOpen)
             {
                 this.WindowState = WindowState.Minimized;
             }

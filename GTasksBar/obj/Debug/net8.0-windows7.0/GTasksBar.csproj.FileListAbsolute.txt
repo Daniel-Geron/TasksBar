@@ -87,6 +87,7 @@ C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\refin
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\GTasksBar.pdb
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\GTasksBar.genruntimeconfig.cache
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\ref\GTasksBar.dll
-C:\Users\User\source\repos\GTasksBar\GTasksBar\bin\Debug\net8.0-windows7.0\credentials.json
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\Views\Windows\SettingsWindow.baml
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\Views\Windows\SettingsWindow.g.cs
+C:\Users\User\source\repos\GTasksBar\GTasksBar\bin\Debug\net8.0-windows7.0\credentials.json
+C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\GTasksBar.sourcelink.json

@@ -16,5 +16,5 @@ C:\Users\User\source\repos\GTasksBar\GTasksBar\App.xaml
 240-83371732
 Views\Pages\DashboardPage.xaml;Views\Pages\DataPage.xaml;Views\Pages\SettingsPage.xaml;Views\Windows\DesktopWidgetWindow.xaml;Views\Windows\SettingsWindow.xaml;Views\Windows\StickyNoteWindow.xaml;Views\Windows\SystemTrayWindow.xaml;Views\Windows\TasksFlyoutWindow.xaml;
 
-False
+True
 

@@ -45,42 +45,30 @@
 
     </ui:FluentWindow.Resources>
 
-    <Grid Margin="12,12,12,6">
-
+    <Grid Margin="12,12,12,6" Background="Transparent" MouseLeftButtonDown="RootGrid_MouseDown">
         <Grid.RowDefinitions>
-
             <RowDefinition Height="Auto"/>
-
             <RowDefinition Height="Auto"/>
-
             <RowDefinition Height="*"/>
-
             <RowDefinition Height="Auto"/>
-
         </Grid.RowDefinitions>
 
 
         <Grid Grid.Row="0" Margin="0,0,0,16" Background="Transparent" MouseLeftButtonDown="Header_MouseLeftButtonDown">
-
             <Grid.ColumnDefinitions>
-
                 <ColumnDefinition Width="*"/>
-
                 <ColumnDefinition Width="Auto"/>
-
             </Grid.ColumnDefinitions>
 
-
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsHitTestVisible="False">
-
                 <ui:SymbolIcon Symbol="TaskListLtr24" Filled="True" FontSize="18" Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" Margin="0,0,6,0"/>
-
                 <TextBlock Text="Google Tasks" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-
             </StackPanel>
 
-            <ui:Button Grid.Column="1" Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Settings20, Filled=True}" Click="Settings_Click" Padding="4" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <ui:Button x:Name="PinButton" Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Pin20}" Click="PinButton_Click" Padding="4" Margin="0,0,4,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                <ui:Button Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Settings20, Filled=True}" Click="Settings_Click" Padding="4" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+            </StackPanel>
         </Grid>
 
 
@@ -98,21 +86,20 @@
 
 
         <ListView Grid.Row="2" x:Name="TasksListView" Margin="0,0,0,12" BorderThickness="0" Background="Transparent" 
-
-                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="False">
+          ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="False"
+          MouseLeftButtonDown="RootGrid_MouseDown"
+          SelectionMode="Single">
 
             <ListView.ItemContainerStyle>
-
                 <Style TargetType="ListViewItem">
-
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-
                     <Setter Property="Margin" Value="0,0,0,6"/>
-
                     <Setter Property="Padding" Value="0"/>
 
-                </Style>
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    <Setter Property="IsTabStop" Value="False"/>
 
+                </Style>
             </ListView.ItemContainerStyle>
 
 
@@ -120,7 +107,7 @@
 
                 <DataTemplate DataType="{x:Type local:TaskItem}">
 
-                    <Border x:Name="TaskCard" Background="{DynamicResource ControlFillColorDefaultBrush}" CornerRadius="6" Padding="10,8" BorderThickness="1" BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" LostFocus="TaskCard_LostFocus">
+                    <Border x:Name="TaskCard" Background="Transparent" CornerRadius="6" Padding="10,8" BorderThickness="0" LostFocus="TaskCard_LostFocus">
 
                         <Grid>
 
@@ -299,64 +286,57 @@
 
 
                             <StackPanel Grid.Column="1" Margin="0,0,6,0">
-
                                 <ui:TextBox x:Name="TaskTitleInput" 
+            ClearButtonEnabled="False"
+            Text="{Binding Title, UpdateSourceTrigger=LostFocus}" 
+            KeyDown="TaskTitleInput_KeyDown"
+            FontSize="14" FontWeight="Medium" 
+            Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
+            BorderThickness="0" Background="Transparent" Padding="0,0,0,2"
+            PlaceholderText="Task title"
+            Loaded="TaskTitleInput_Loaded"
+            FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}">
 
-                                            Text="{Binding Title, UpdateSourceTrigger=LostFocus}" 
-                                            KeyDown="TaskTitleInput_KeyDown"
-                                            FontSize="14" FontWeight="Medium" 
+                                    <ui:TextBox.Resources>
+                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlElevationBorderBrush" Color="Transparent" />
+                                    </ui:TextBox.Resources>
 
-                                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" 
-
-                                            BorderThickness="0" Background="Transparent" Padding="0,0,0,2"
-
-                                            PlaceholderText="Task title"
-
-                                            Loaded="TaskTitleInput_Loaded"
-
-                                            FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}"/>
-
+                                </ui:TextBox>
 
                                 <ui:TextBox x:Name="TaskDetailsInput"
+            ClearButtonEnabled="False"
+            Text="{Binding Details, UpdateSourceTrigger=LostFocus}" 
+            PlaceholderText="Add details" 
+            BorderThickness="0" Background="Transparent" 
+            Padding="0,2,0,0" FontSize="12" 
+            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+            FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}">
 
-                                            Text="{Binding Details, UpdateSourceTrigger=LostFocus}" 
-
-                                            PlaceholderText="Add details" 
-
-                                            BorderThickness="0" Background="Transparent" 
-
-                                            Padding="0,2,0,0" FontSize="12" 
-
-                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-
-                                            FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}">
+                                    <ui:TextBox.Resources>
+                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                        <SolidColorBrush x:Key="TextControlElevationBorderBrush" Color="Transparent" />
+                                    </ui:TextBox.Resources>
 
                                     <ui:TextBox.Style>
-
                                         <Style TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
-
                                             <Setter Property="Visibility" Value="Collapsed"/>
-
                                             <Style.Triggers>
-
                                                 <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TaskCard}" Value="True">
-
                                                     <Setter Property="Visibility" Value="Visible"/>
-
                                                 </DataTrigger>
-
                                                 <DataTrigger Binding="{Binding HasDetails}" Value="True">
-
                                                     <Setter Property="Visibility" Value="Visible"/>
-
                                                 </DataTrigger>
-
                                             </Style.Triggers>
-
                                         </Style>
-
                                     </ui:TextBox.Style>
-
                                 </ui:TextBox>
 
                             </StackPanel>
@@ -376,23 +356,16 @@
 
 
                     <DataTemplate.Triggers>
-
                         <Trigger Property="IsMouseOver" Value="True" SourceName="TaskCard">
-
                             <Setter TargetName="MoreButton" Property="Opacity" Value="1"/>
-
+                            <Setter TargetName="TaskCard" Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}"/>
                         </Trigger>
 
                         <DataTrigger Binding="{Binding IsCompleted}" Value="True">
-
                             <Setter TargetName="TaskTitleInput" Property="TextDecorations" Value="Strikethrough"/>
-
                             <Setter TargetName="TaskTitleInput" Property="Opacity" Value="0.5"/>
-
                             <Setter TargetName="TaskDetailsInput" Property="Opacity" Value="0.5"/>
-
                         </DataTrigger>
-
                     </DataTemplate.Triggers>
 
                 </DataTemplate>

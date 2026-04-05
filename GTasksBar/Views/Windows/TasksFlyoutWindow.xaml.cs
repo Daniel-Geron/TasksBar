@@ -42,7 +42,11 @@ namespace GTasksBar
         {
             AppConfig.Load();
 
-            // THE FIX: Apply the SAVED theme, not just the system theme!
+            // 1. Create the window in memory FIRST
+            InitializeComponent();
+            SetupTrayIcon();
+
+            // 2. THE FIX: Now that the window exists, apply the theme to it!
             if (AppConfig.Settings.AppTheme == 1)
                 Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
             else if (AppConfig.Settings.AppTheme == 2)
@@ -57,16 +61,13 @@ namespace GTasksBar
             // Always apply the Windows Accent Color
             Wpf.Ui.Appearance.ApplicationAccentColorManager.ApplySystemAccent();
 
-            InitializeComponent();
-            SetupTrayIcon();
-
-
-            Wpf.Ui.Appearance.SystemThemeWatcher.Watch(this, WindowBackdropType.Mica, true);
-
             // Apply loaded settings to the window
             this.WindowBackdropType = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
             this.Topmost = AppConfig.Settings.StayOnTop;
             _currentPosition = AppConfig.Settings.Position;
+
+            // Force the Pin icon to match the loaded setting immediately!
+            UpdatePinIcon();
 
             _snackbarService = new SnackbarService();
             _snackbarService.SetSnackbarPresenter(RootSnackbar);

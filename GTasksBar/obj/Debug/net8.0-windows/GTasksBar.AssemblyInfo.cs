@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GTasksBar")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+890a05f4ffa5715be9b0f75283e256d20e5088fd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b3debd6441a0ddab1295256c69ac4e1ce9ec285")]
 [assembly: System.Reflection.AssemblyProductAttribute("GTasksBar")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GTasksBar")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

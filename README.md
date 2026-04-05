@@ -40,5 +40,5 @@ Because this app connects to Google Tasks, you need to provide your own API cred
 ### 2. Add Credentials to the App
 1. Clone this repository to your local machine:
    ```bash
-   git clone [https://github.com/Daniel-Geron/GTasksBar.git](https://github.com/Daniel-Geron/GTasksBar.git)
+   git clone https://github.com/Daniel-Geron/GTasksBar.git
 

@@ -1,10 +1,10 @@
 {
-  "UseAcrylic": false,
-  "StayOnTop": false,
+  "UseAcrylic": true,
+  "StayOnTop": true,
   "IsLocked": false,
   "EnableGoogleSync": true,
   "Position": 4,
   "ShowCompletedTasks": true,
-  "LaunchOnStartup": true,
-  "AppTheme": 2
+  "LaunchOnStartup": false,
+  "AppTheme": 0
 }

@@ -2,7 +2,7 @@
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="Settings" Height="580" Width="600" 
+                 Title="Settings" Height="600" Width="800" 
                  WindowStartupLocation="CenterScreen"
                  WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True"
@@ -14,101 +14,34 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Settings" />
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel MaxWidth="800" Margin="20,10,20,30">
+        <ui:TitleBar Grid.Row="0" Grid.ColumnSpan="2" Title="Settings" />
 
-                <TextBlock Text="Settings" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,24" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+        <Border Grid.Row="1" Grid.Column="0" Background="Transparent" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}">
+            <ListBox x:Name="SidebarList" Background="Transparent" BorderThickness="0" Margin="10,20,10,10" SelectionChanged="SidebarList_SelectionChanged">
 
-                <TextBlock Text="Appearance" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <ListBoxItem Padding="12,10" Margin="0,0,0,4">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="PaintBucket24" Margin="0,0,12,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="Appearance &amp; Layout" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ListBoxItem>
 
-                <ui:CardControl Icon="{ui:SymbolIcon PaintBucket24}" Margin="0,0,0,4">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Window Backdrop" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Use an Acrylic blur effect instead of Mica" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:ToggleSwitch x:Name="AcrylicToggle" Click="Setting_Changed" />
-                </ui:CardControl>
+                <ListBoxItem Padding="12,10">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="CloudArrowUp24" Margin="0,0,12,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="Behavior &amp; Sync" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ListBoxItem>
 
-                <ui:CardControl Icon="{ui:SymbolIcon Color24}" Margin="0,0,0,24">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Application Theme" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Override the default Windows theme" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ComboBox x:Name="ThemeComboBox" Width="120" SelectionChanged="Setting_Changed">
-                        <ComboBoxItem Content="System Default"/>
-                        <ComboBoxItem Content="Light"/>
-                        <ComboBoxItem Content="Dark"/>
-                    </ComboBox>
-                </ui:CardControl>
+            </ListBox>
+        </Border>
 
-                <TextBlock Text="Behavior &amp; Sync" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+        <Frame x:Name="RootFrame" Grid.Row="1" Grid.Column="1" NavigationUIVisibility="Hidden" Background="Transparent"/>
 
-                <ui:CardControl Icon="{ui:SymbolIcon CloudArrowUp24}" Margin="0,0,0,4">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Google Tasks Sync" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Keep tasks synchronized with your Google account" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:ToggleSwitch x:Name="GoogleSyncToggle" Click="Setting_Changed" />
-                </ui:CardControl>
-
-                <ui:CardControl Icon="{ui:SymbolIcon CheckmarkSquare24}" Margin="0,0,0,4">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Show Completed Tasks" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Keep finished tasks visible in the list" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:ToggleSwitch x:Name="ShowCompletedToggle" Click="Setting_Changed" />
-                </ui:CardControl>
-
-                <ui:CardControl Icon="{ui:SymbolIcon Rocket24}" Margin="0,0,0,24">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Launch on Startup" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Start GTasksBar automatically with Windows" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:ToggleSwitch x:Name="StartupToggle" Click="Setting_Changed" />
-                </ui:CardControl>
-
-                <TextBlock Text="Widget Layout" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-
-                <ui:CardControl Icon="{ui:SymbolIcon LockClosed24}" Margin="0,0,0,4">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Lock Position" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Prevent the widget from being dragged" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:ToggleSwitch x:Name="LockToggle" Click="Setting_Changed" />
-                </ui:CardControl>
-
-                <ui:CardControl Icon="{ui:SymbolIcon ArrowMove24}" Margin="0,0,0,30">
-                    <ui:CardControl.Header>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="Default Location" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                            <TextBlock Text="Where the widget snaps to on the screen" FontSize="12" Opacity="0.5" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ComboBox x:Name="PositionComboBox" Width="140" SelectionChanged="Setting_Changed">
-                        <ComboBoxItem Content="Top Left"/>
-                        <ComboBoxItem Content="Top Center"/>
-                        <ComboBoxItem Content="Top Right"/>
-                        <ComboBoxItem Content="Bottom Left"/>
-                        <ComboBoxItem Content="Bottom Center"/>
-                        <ComboBoxItem Content="Bottom Right"/>
-                    </ComboBox>
-                </ui:CardControl>
-
-            </StackPanel>
-        </ScrollViewer>
     </Grid>
 </ui:FluentWindow>

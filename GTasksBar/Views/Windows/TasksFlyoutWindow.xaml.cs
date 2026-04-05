@@ -81,25 +81,11 @@ namespace GTasksBar
         {
             try
             {
-                UserCredential credential;
-                string[] scopes = { TasksService.Scope.Tasks };
+                // Tell the central manager to handle the token/login process
+                await GoogleAuthManager.LoginAsync();
 
-                using (var stream = new FileStream("credentials.json", FileMode.Open, FileAccess.Read))
-                {
-                    string credPath = "token.json";
-                    credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                        GoogleClientSecrets.FromStream(stream).Secrets,
-                        scopes,
-                        "user",
-                        CancellationToken.None,
-                        new Google.Apis.Util.Store.FileDataStore(credPath, true));
-                }
-
-                _googleTasksService = new TasksService(new BaseClientService.Initializer()
-                {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "GTasksBar",
-                });
+                // Grab the initialized service directly from the manager
+                _googleTasksService = GoogleAuthManager.GetTasksService();
 
                 await SyncTasksFromGoogle();
             }
@@ -108,7 +94,6 @@ namespace GTasksBar
                 System.Windows.MessageBox.Show($"Failed to connect to Google: {ex.Message}");
             }
         }
-
         private async Task SyncTasksFromGoogle()
         {
             if (_googleTasksService == null) return;
@@ -119,7 +104,7 @@ namespace GTasksBar
             request.ShowHidden = false;
 
             // THE FIX: Hook this up to the AppConfig setting instead of hardcoding "false"
-            request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+            request.ShowCompleted = false;
 
             var response = await request.ExecuteAsync();
 
@@ -257,7 +242,7 @@ namespace GTasksBar
                     _snackbarService.Show(
                         "Task Completed",
                         task.Title,
-                        Wpf.Ui.Controls.ControlAppearance.Primary,
+                        Wpf.Ui.Controls.ControlAppearance.Dark,
                         new Wpf.Ui.Controls.SymbolIcon(Wpf.Ui.Controls.SymbolRegular.Checkmark24),
                         TimeSpan.FromSeconds(3)
                     );
@@ -318,8 +303,8 @@ namespace GTasksBar
 
             _isOpeningSettings = true;
 
-            // THE FIX: Remember what the setting was before we opened the menu
-            bool previousShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+            // THE FIX: Track the Google Sync setting instead of the deleted Completed Tasks setting
+            bool previousSyncState = AppConfig.Settings.EnableGoogleSync;
 
             _settingsWindow = new SettingsWindow();
 
@@ -331,10 +316,26 @@ namespace GTasksBar
                 UpdatePinIcon();
                 PlaySlideAnimation();
 
-                // THE FIX: If they toggled "Show Completed Tasks", instantly fetch the new list from Google!
-                if (previousShowCompleted != AppConfig.Settings.ShowCompletedTasks)
+                // If Google Sync is enabled, always grab the latest service from the manager
+                if (AppConfig.Settings.EnableGoogleSync)
                 {
-                    await SyncTasksFromGoogle();
+                    // Update our local service in case they just logged in via Settings
+                    _googleTasksService = GoogleAuthManager.GetTasksService();
+
+                    if (_googleTasksService == null)
+                    {
+                        // If the service is null, they haven't logged in at all yet, so run the full init
+                        await InitializeGoogleTasksAsync();
+                    }
+                    else
+                    {
+                        // Otherwise, just refresh the list!
+                        await SyncTasksFromGoogle();
+                    }
+                }
+                else if (!AppConfig.Settings.EnableGoogleSync && previousSyncState)
+                {
+                    MyTasks.Clear(); // Clear the UI if they just toggled sync off
                 }
             };
 

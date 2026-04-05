@@ -12,7 +12,8 @@
 
                  WindowStartupLocation="Manual" 
 
-                 ShowInTaskbar="True"
+                 ShowInTaskbar="False"
+              
 
                  WindowStyle="None"
 
@@ -52,7 +53,12 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-
+        <Grid.Resources>
+            <Style TargetType="ui:Snackbar" BasedOn="{StaticResource {x:Type ui:Snackbar}}">
+                <Setter Property="Background" Value="{DynamicResource SystemAccentColorPrimaryBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+            </Style>
+        </Grid.Resources>
 
         <Grid Grid.Row="0" Margin="0,0,0,16" Background="Transparent" MouseLeftButtonDown="Header_MouseLeftButtonDown">
             <Grid.ColumnDefinitions>

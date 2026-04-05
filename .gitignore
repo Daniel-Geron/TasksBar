@@ -1,3 +1,20 @@
-credentials.json
-Visual Studio
+# ========================
+# Visual Studio Cache & Build Files
+# ========================
 .vs/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+*.user
+*.suo
+
+# ========================
+# Google API Secrets
+# ========================
+credentials.json
+token.json
+
+# ========================
+# Application Settings
+# ========================
+config.json

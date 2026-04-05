@@ -1,9 +1,9 @@
 {
   "UseAcrylic": true,
-  "StayOnTop": false,
+  "StayOnTop": true,
   "IsLocked": false,
   "EnableGoogleSync": true,
-  "Position": 0,
+  "Position": 5,
   "ShowCompletedTasks": false,
   "LaunchOnStartup": true,
   "AppTheme": 1

@@ -2,6 +2,7 @@
 using Google.Apis.Services;
 using Google.Apis.Tasks.v1;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
@@ -30,6 +31,7 @@ namespace GTasksBar
         private TasksService _googleTasksService;
         private string _defaultTaskListId = "@default";
         private SnackbarService _snackbarService;
+        private System.Windows.Forms.NotifyIcon _trayIcon;
         public TasksFlyoutWindow()
         {
             AppConfig.Load();
@@ -50,8 +52,9 @@ namespace GTasksBar
             Wpf.Ui.Appearance.ApplicationAccentColorManager.ApplySystemAccent();
 
             InitializeComponent();
+            SetupTrayIcon();
 
-          
+
             Wpf.Ui.Appearance.SystemThemeWatcher.Watch(this, WindowBackdropType.Mica, true);
 
             // Apply loaded settings to the window
@@ -75,6 +78,62 @@ namespace GTasksBar
             this.Deactivated += Window_Deactivated;
         }
 
+        private async void OnTaskPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // 1. Check if the sender is actually a TaskItem
+            if (sender is TaskItem taskItem)
+            {
+                // 2. Pass it to your existing logic
+                await TaskItem_PropertyChanged(taskItem, e.PropertyName);
+            }
+        }
+        private void SetupTrayIcon()
+        {
+            _trayIcon = new System.Windows.Forms.NotifyIcon();
+
+          
+            // This automatically extracts the beautiful .exe icon you set in the project properties!
+            _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            _trayIcon.Text = "GTasksBar";
+            _trayIcon.Visible = true;
+
+            // Handle Left-Click to toggle the window
+            _trayIcon.MouseClick += (s, e) =>
+            {
+                if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                {
+                    if (this.IsVisible)
+                    {
+                        this.Hide(); // Hides it completely from the screen
+                    }
+                    else
+                    {
+                        this.Show();
+                        this.Activate();
+                        this.Focus();
+
+                        // If you have an animation method, call it here!
+                        // PlaySlideAnimation(); 
+                    }
+                }
+            };
+
+            // Handle Right-Click to close the app completely
+            var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+            contextMenu.Items.Add("Exit GTasksBar", null, (s, e) => Application.Current.Shutdown());
+            _trayIcon.ContextMenuStrip = contextMenu;
+        }
+
+        // Ensure the icon cleans itself up when the app completely closes
+        protected override void OnClosed(EventArgs e)
+        {
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+            }
+            base.OnClosed(e);
+        }
         // --- GOOGLE API INTEGRATION ---
 
         private async Task InitializeGoogleTasksAsync()
@@ -98,13 +157,23 @@ namespace GTasksBar
         {
             if (_googleTasksService == null) return;
 
+            // --- THE CLEANUP FIX ---
+            // Before clearing the list, safely unhook the events so the RAM is freed!
+            foreach (var oldTask in MyTasks)
+            {
+                oldTask.PropertyChanged -= OnTaskPropertyChanged; // Mathematically breaks the memory link
+
+                oldTask.Title = null;
+                oldTask.Details = null;
+            }
+
             MyTasks.Clear();
+      
+
+
             var request = _googleTasksService.Tasks.List(_defaultTaskListId);
-
             request.ShowHidden = false;
-
-            // THE FIX: Hook this up to the AppConfig setting instead of hardcoding "false"
-            request.ShowCompleted = false;
+            request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
 
             var response = await request.ExecuteAsync();
 
@@ -112,11 +181,8 @@ namespace GTasksBar
             {
                 foreach (var gTask in response.Items)
                 {
-                    // Ignore "Ghost" tasks that have no title
                     if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
-
-                    // Optional safeguard: If a completed task somehow slips through, ignore it
-                    if (gTask.Status == "completed") continue;
+                    if (!AppConfig.Settings.ShowCompletedTasks && gTask.Status == "completed") continue;
 
                     var taskItem = new TaskItem
                     {
@@ -126,7 +192,10 @@ namespace GTasksBar
                         IsCompleted = gTask.Status == "completed"
                     };
 
-                    taskItem.PropertyChanged += async (s, e) => await TaskItem_PropertyChanged(taskItem, e.PropertyName);
+                    // --- THE ATTACHMENT FIX ---
+                    // Hook up the new named method instead of the lambda
+                    taskItem.PropertyChanged += OnTaskPropertyChanged;
+
                     MyTasks.Add(taskItem);
                 }
             }
@@ -394,10 +463,11 @@ namespace GTasksBar
             // Check if the settings window is currently open
             bool isSettingsOpen = _settingsWindow != null && _settingsWindow.IsLoaded;
 
-            // THE FIX: Only minimize if StayOnTop is false AND the settings window isn't open
-            if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings && !isSettingsOpen)
+            
+            // Inside Window_Deactivated:
+            if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings)
             {
-                this.WindowState = WindowState.Minimized;
+                this.Hide(); // Hides the window entirely, leaving only the tray icon!
             }
         }
 

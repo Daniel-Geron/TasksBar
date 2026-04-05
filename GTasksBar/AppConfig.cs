@@ -23,7 +23,7 @@ namespace GTasksBar
     // This manager saves and loads the data
     public static class AppConfig
     {
-        private static readonly string SettingsFile = "config.json";
+        private static readonly string SettingsFile = System.IO.Path.Combine(System.AppContext.BaseDirectory, "config.json");
         public static AppSettings Settings { get; set; } = new AppSettings();
 
         public static void Load()

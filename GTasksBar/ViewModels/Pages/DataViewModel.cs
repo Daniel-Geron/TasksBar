@@ -1,7 +1,12 @@
 ﻿using System.Windows.Media;
 using GTasksBar.Models;
 using Wpf.Ui.Abstractions.Controls;
-
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
+using Wpf.Ui.Controls;
 namespace GTasksBar.ViewModels.Pages
 {
     public partial class DataViewModel : ObservableObject, INavigationAware

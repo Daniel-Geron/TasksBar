@@ -16,16 +16,22 @@ namespace GTasksBar
 
         public static async Task<UserCredential> LoginAsync()
         {
-            // THE FIX: Using your exact credentials.json file name
-            using (var stream = new FileStream("credentials.json", FileMode.Open, FileAccess.Read))
+            // 1. Get the exact folder where GTasksBar.exe lives
+            string baseDir = System.AppContext.BaseDirectory;
+
+            // 2. Combine the folder path with the file names
+            string credsPath = System.IO.Path.Combine(baseDir, "credentials.json");
+            string tokenPath = System.IO.Path.Combine(baseDir, "token.json");
+
+            // 3. Use the absolute paths!
+            using (var stream = new FileStream(credsPath, FileMode.Open, FileAccess.Read))
             {
-                string credPath = "token.json";
                 _credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
                     GoogleClientSecrets.FromStream(stream).Secrets,
                     Scopes,
                     "user",
                     CancellationToken.None,
-                    new FileDataStore(credPath, true));
+                    new FileDataStore(tokenPath, true));
             }
             return _credential;
         }

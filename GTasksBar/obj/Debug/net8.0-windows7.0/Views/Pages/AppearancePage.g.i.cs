@@ -88,7 +88,7 @@ namespace GTasksBar {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/GTasksBar;component/views/pages/appearancepage.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/GTasksBar;V1.0.0.0;component/views/pages/appearancepage.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\..\Views\Pages\AppearancePage.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

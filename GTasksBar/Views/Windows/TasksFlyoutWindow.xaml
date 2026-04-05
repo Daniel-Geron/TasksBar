@@ -67,8 +67,8 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsHitTestVisible="False">
-                <ui:SymbolIcon Symbol="TaskListLtr24" Filled="True" FontSize="18" Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" Margin="0,0,6,0"/>
-                <TextBlock Text="Google Tasks" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+             
+                
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">

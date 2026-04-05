@@ -95,3 +95,5 @@ C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\refin
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\GTasksBar.pdb
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\GTasksBar.genruntimeconfig.cache
 C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\ref\GTasksBar.dll
+C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\Views\Windows\TaskbarWidgetWindow.baml
+C:\Users\User\source\repos\GTasksBar\GTasksBar\obj\Debug\net8.0-windows7.0\Views\Windows\TaskbarWidgetWindow.g.cs

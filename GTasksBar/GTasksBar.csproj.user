@@ -11,15 +11,6 @@
     <Compile Update="Views\Windows\SettingsWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="Views\Windows\DesktopWidgetWindow.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\Windows\StickyNoteWindow.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\Windows\SystemTrayWindow.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Update="Views\Windows\TasksFlyoutWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

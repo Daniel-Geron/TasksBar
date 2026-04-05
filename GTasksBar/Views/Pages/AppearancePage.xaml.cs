@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
-namespace GTasksBar
+namespace TasksBar
 {
     public partial class AppearancePage : Page
     {

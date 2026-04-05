@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace GTasksBar.Helpers
+namespace TasksBar.Helpers
 {
     class StartupHelper
     {

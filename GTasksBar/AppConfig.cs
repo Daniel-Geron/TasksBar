@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Text.Json;
 
-namespace GTasksBar
+namespace TasksBar
 {
     // This holds the actual data
     public class AppSettings

@@ -1,4 +1,4 @@
-﻿namespace GTasksBar.Models
+﻿namespace TasksBar.Models
 {
     public class AppConfig
     {

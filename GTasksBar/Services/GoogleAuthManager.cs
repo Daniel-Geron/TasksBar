@@ -6,17 +6,17 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace GTasksBar
+namespace TasksBar
 {
     public static class GoogleAuthManager
     {
         static string[] Scopes = { TasksService.Scope.Tasks };
-        static string ApplicationName = "GTasksBar";
+        static string ApplicationName = "TasksBar";
         private static UserCredential _credential;
 
         public static async Task<UserCredential> LoginAsync()
         {
-            // 1. Get the exact folder where GTasksBar.exe lives
+            // 1. Get the exact folder where TasksBar.exe lives
             string baseDir = System.AppContext.BaseDirectory;
 
             // 2. Combine the folder path with the file names

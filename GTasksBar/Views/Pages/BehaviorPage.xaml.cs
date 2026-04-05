@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32; // THE FIX: Needed to access the Windows Registry
 
-namespace GTasksBar
+namespace TasksBar
 {
     public partial class BehaviorPage : Page
     {
@@ -37,7 +37,7 @@ namespace GTasksBar
             {
                 // The standard folder in the Windows Registry where startup apps live
                 string registryKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-                string appName = "GTasksBar";
+                string appName = "TasksBar";
 
                 // Gets the exact hard drive path of your currently running .exe
                 string exePath = Environment.ProcessPath;

@@ -2,7 +2,7 @@
 using System.Windows.Data;
 using Wpf.Ui.Appearance;
 
-namespace GTasksBar.Helpers
+namespace TasksBar.Helpers
 {
     internal class EnumToBooleanConverter : IValueConverter
     {

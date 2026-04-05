@@ -1,6 +1,6 @@
 ﻿using System.Windows.Media;
 
-namespace GTasksBar.Models
+namespace TasksBar.Models
 {
     public struct DataColor
     {

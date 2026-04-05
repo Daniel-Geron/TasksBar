@@ -1,17 +1,17 @@
 ﻿using System.IO;
 using System.Reflection;
 using System.Windows.Threading;
-using GTasksBar.Services;
-using GTasksBar.ViewModels.Pages;
-using GTasksBar.ViewModels.Windows;
-using GTasksBar.Views.Pages;
+using TasksBar.Services;
+using TasksBar.ViewModels.Pages;
+using TasksBar.ViewModels.Windows;
+using TasksBar.Views.Pages;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Wpf.Ui;
 using Wpf.Ui.DependencyInjection;
 
-namespace GTasksBar
+namespace TasksBar
 {
     /// <summary>
     /// Interaction logic for App.xaml

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace GTasksBar.Services
+namespace TasksBar.Services
 {
     class GoogleTasksService
     {

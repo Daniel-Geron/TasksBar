@@ -2,7 +2,7 @@
 using System.Windows.Controls;
 using Wpf.Ui.Controls;
 
-namespace GTasksBar
+namespace TasksBar
 {
     public partial class SettingsWindow : FluentWindow
     {

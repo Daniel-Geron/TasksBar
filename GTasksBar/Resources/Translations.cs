@@ -1,4 +1,4 @@
-namespace GTasksBar.Resources
+namespace TasksBar.Resources
 {
     public partial class Translations
     {

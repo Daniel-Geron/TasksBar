@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace GTasksBar
+namespace TasksBar
 {
     public class TaskItem : INotifyPropertyChanged
     {

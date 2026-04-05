@@ -1,12 +1,12 @@
 ﻿using System.Collections.ObjectModel;
 using Wpf.Ui.Controls;
 
-namespace GTasksBar.ViewModels.Windows
+namespace TasksBar.ViewModels.Windows
 {
     public partial class MainWindowViewModel : ObservableObject
     {
         [ObservableProperty]
-        private string _applicationTitle = "WPF UI - GTasksBar";
+        private string _applicationTitle = "WPF UI - TasksBar";
 
         [ObservableProperty]
         private ObservableCollection<object> _menuItems = new()

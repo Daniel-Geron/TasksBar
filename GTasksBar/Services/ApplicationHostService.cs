@@ -1,4 +1,4 @@
-﻿using GTasksBar.Views.Pages;
+﻿using TasksBar.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Wpf.Ui;
@@ -10,7 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Wpf.Ui.Controls;
 using System.Linq;
 
-namespace GTasksBar.Services
+namespace TasksBar.Services
 {
     /// <summary>
     /// Managed host of the application.

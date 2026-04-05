@@ -1,4 +1,4 @@
-﻿namespace GTasksBar.ViewModels.Pages
+﻿namespace TasksBar.ViewModels.Pages
 {
     public partial class DashboardViewModel : ObservableObject
     {

@@ -11,12 +11,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("GTasksBar")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("TasksBar")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b3debd6441a0ddab1295256c69ac4e1ce9ec285")]
-[assembly: System.Reflection.AssemblyProductAttribute("GTasksBar")]
-[assembly: System.Reflection.AssemblyTitleAttribute("GTasksBar")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b6af1e724db5801d7c4f7501cb1eb5064e4a635a")]
+[assembly: System.Reflection.AssemblyProductAttribute("TasksBar")]
+[assembly: System.Reflection.AssemblyTitleAttribute("TasksBar")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]

@@ -16,7 +16,7 @@ using Wpf.Ui;
 using Wpf.Ui.Controls;
 using System.Diagnostics;
 
-namespace GTasksBar
+namespace TasksBar
 {
     public enum WidgetPosition { TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight }
 
@@ -84,7 +84,19 @@ namespace GTasksBar
             this.StateChanged += Window_StateChanged;
             this.Deactivated += Window_Deactivated;
         }
+        private void HideAndFlushMemory()
+        {
+            this.Hide(); // Hide the window
 
+            // Force the memory flush immediately after hiding
+            try
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
+            }
+            catch { }
+        }
         private async void OnTaskPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             // 1. Check if the sender is actually a TaskItem
@@ -101,7 +113,7 @@ namespace GTasksBar
           
             // This automatically extracts the beautiful .exe icon you set in the project properties!
             _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            _trayIcon.Text = "GTasksBar";
+            _trayIcon.Text = "TasksBar";
             _trayIcon.Visible = true;
 
             // Handle Left-Click to toggle the window
@@ -111,7 +123,8 @@ namespace GTasksBar
                 {
                     if (this.IsVisible)
                     {
-                        this.Hide(); // Hides it completely from the screen
+                        // Flush the RAM when manually hidden via the tray!
+                        HideAndFlushMemory();
                     }
                     else
                     {
@@ -119,15 +132,15 @@ namespace GTasksBar
                         this.Activate();
                         this.Focus();
 
-                        // If you have an animation method, call it here!
-                        // PlaySlideAnimation(); 
+                        
+                        PlaySlideAnimation(); 
                     }
                 }
             };
 
             // Handle Right-Click to close the app completely
             var contextMenu = new System.Windows.Forms.ContextMenuStrip();
-            contextMenu.Items.Add("Exit GTasksBar", null, (s, e) => Application.Current.Shutdown());
+            contextMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
             _trayIcon.ContextMenuStrip = contextMenu;
         }
 
@@ -470,20 +483,11 @@ namespace GTasksBar
             // Check if the settings window is currently open
             bool isSettingsOpen = _settingsWindow != null && _settingsWindow.IsLoaded;
 
-            
-            // Inside Window_Deactivated:
             if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings)
             {
-                this.Hide(); // Hides the window entirely, leaving only the tray icon!
-                try
-                {
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                    SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
-                }
-                catch { }
+                // THE FIX: Use our new centralized method
+                HideAndFlushMemory();
             }
-      
         }
 
         private void PlaySlideAnimation()

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace GTasksBar
+namespace TasksBar
 {
     public static class NativeMethods
     {

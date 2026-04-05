@@ -1,11 +1,11 @@
 <Page
-  x:Class="GTasksBar.Views.Pages.DataPage"
+  x:Class="TasksBar.Views.Pages.DataPage"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:local="clr-namespace:GTasksBar.Views.Pages"
+  xmlns:local="clr-namespace:TasksBar.Views.Pages"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:models="clr-namespace:GTasksBar.Models"
+  xmlns:models="clr-namespace:TasksBar.Models"
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   Title="DataPage"
   d:DataContext="{d:DesignInstance local:DataPage,

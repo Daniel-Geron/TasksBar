@@ -2473,9 +2473,9 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\User\\source\\repos\\GTasksBar\\GTasksBar\\GTasksBar.csproj",
-      "projectName": "GTasksBar",
-      "projectPath": "C:\\Users\\User\\source\\repos\\GTasksBar\\GTasksBar\\GTasksBar.csproj",
+      "projectUniqueName": "C:\\Users\\User\\source\\repos\\GTasksBar\\GTasksBar\\TasksBar.csproj",
+      "projectName": "TasksBar",
+      "projectPath": "C:\\Users\\User\\source\\repos\\GTasksBar\\GTasksBar\\TasksBar.csproj",
       "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\User\\source\\repos\\GTasksBar\\GTasksBar\\obj\\",
       "projectStyle": "PackageReference",

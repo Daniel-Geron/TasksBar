@@ -1,7 +1,7 @@
-﻿using GTasksBar.ViewModels.Pages;
+﻿using TasksBar.ViewModels.Pages;
 using Wpf.Ui.Abstractions.Controls;
 
-namespace GTasksBar.Views.Pages
+namespace TasksBar.Views.Pages
 {
     public partial class DashboardPage : INavigableView<DashboardViewModel>
     {

@@ -2,7 +2,9 @@
 
 <video src="https://github.com/user-attachments/assets/ab279dad-7f38-4aa3-98ba-8c6a9366229b" autoplay loop muted playsinline width="100%">
 </video>
-TasksBar is a lightweight, beautifully native Google Tasks widget for Windows. 
+
+## The Tasks App That Is in Your Taskbar
+TasksBar is a lightweight, beautifully native Tasks widget for Windows. 
 
 Built with WPF and the modern Windows 11 design language, it lives quietly in your System Tray and pops up exactly when you need it. It offers full two-way synchronization with your Google account, allowing you to manage your daily tasks without ever opening a web browser.
 

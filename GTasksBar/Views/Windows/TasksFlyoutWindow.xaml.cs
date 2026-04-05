@@ -294,7 +294,7 @@ namespace GTasksBar
                 }), System.Windows.Threading.DispatcherPriority.Input);
             }
         }
-
+   
         private async void CompleteTask_Click(object sender, RoutedEventArgs e)
         {
             if (sender is System.Windows.Controls.Primitives.ToggleButton btn && btn.Tag is TaskItem task)

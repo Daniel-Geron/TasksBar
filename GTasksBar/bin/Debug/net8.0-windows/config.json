@@ -1,5 +1,5 @@
 {
-  "UseAcrylic": true,
+  "UseAcrylic": false,
   "StayOnTop": true,
   "IsLocked": false,
   "EnableGoogleSync": true,

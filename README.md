@@ -27,7 +27,7 @@ To build and run this project, you will need:
 * [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 * A Google Cloud Console account (for the Tasks API)
 
-### 1. Set up the Google Tasks API
+### Setting up the Google Tasks API
 Because this app connects to Google Tasks, you need to provide your own API credentials to build it.
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project and enable the **Google Tasks API**.

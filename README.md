@@ -35,10 +35,10 @@ Because this app connects to Google Tasks, you need to provide your own API cred
 4. Click **Create Credentials > OAuth client ID**.
 5. Choose **Desktop app** as the application type and create it.
 6. Click **Download JSON** on your new credential.
-7. Name the downloaded JSON as `credentials.json` and drag & drop the file **into the project directory** (!Not the folder with .sln file)
+7. Name the downloaded JSON as `credentials.json` and drag & drop the file **into the project directory** (!Not the folder with the .sln file)
 
-### 2. Add Credentials to the App
-1. Clone this repository to your local machine:
+
+Clone this repository to your local machine:
    ```bash
    git clone https://github.com/Daniel-Geron/GTasksBar.git
 

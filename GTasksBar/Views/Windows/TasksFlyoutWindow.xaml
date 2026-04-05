@@ -16,10 +16,6 @@
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <local:AutoRtlConverter x:Key="AutoRtlConverter" />
-            <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Dark" />
-                <ui:ControlsDictionary />
-            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 

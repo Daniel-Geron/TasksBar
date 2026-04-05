@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks; // Explicitly using this for background Tasks
 using System.Windows;
@@ -13,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Wpf.Ui;
 using Wpf.Ui.Controls;
+using System.Diagnostics;
 
 namespace GTasksBar
 {
@@ -20,6 +22,10 @@ namespace GTasksBar
 
     public partial class TasksFlyoutWindow : FluentWindow
     {
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetProcessWorkingSetSize(IntPtr process, int minimumWorkingSetSize, int maximumWorkingSetSize);
         public ObservableCollection<TaskItem> MyTasks { get; set; }
         private WidgetPosition _currentPosition = WidgetPosition.BottomRight;
         private bool _isOpeningSettings = false;
@@ -468,7 +474,15 @@ namespace GTasksBar
             if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings)
             {
                 this.Hide(); // Hides the window entirely, leaving only the tray icon!
+                try
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
+                }
+                catch { }
             }
+      
         }
 
         private void PlaySlideAnimation()

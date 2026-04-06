@@ -1,10 +1,11 @@
 # TasksBar
 
-<video src="https://github.com/user-attachments/assets/ab279dad-7f38-4aa3-98ba-8c6a9366229b" autoplay loop muted playsinline width="100%">
-</video>
+
 
 ## The Tasks App That Is in Your Taskbar
 TasksBar is a lightweight, beautifully native Tasks widget for Windows. 
+
+![tasksbar1](https://github.com/user-attachments/assets/8c08e5c1-df9c-4341-b00a-adcdae3c5c68)
 
 Built with WPF and the modern Windows 11 design language, it lives quietly in your System Tray and pops up exactly when you need it. It offers full two-way synchronization with your Google account, allowing you to manage your daily tasks without ever opening a web browser.
 
@@ -17,8 +18,8 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 * **Hyper-Optimized Memory:** Uses aggressive memory-flushing techniques and Workstation GC to drop idle RAM usage down to ~2MB while hidden.
 * **Satisfying UX:** Features custom-built, bouncy physics animations for task completion.
 
-<video src="https://github.com/user-attachments/assets/be4ac712-46f0-4aa8-84d6-0e651b8c8e34" autoplay loop muted playsinline width="100%">
-</video>
+![tasksbar2](https://github.com/user-attachments/assets/fe112f23-ef07-40fd-b0a9-6ef12638bfde)
+
 ---
 
 ## 🚀 Getting Started

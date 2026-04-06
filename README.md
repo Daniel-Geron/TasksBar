@@ -30,6 +30,8 @@ To build and run this project, you will need:
 * [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 * A Google Cloud Console account (for the Tasks API)
 
+After building the project, the exe will be located in `bin\Debug\net8.0-windows\TasksBar.exe`
+
 ### Setting up the Google Tasks API
 Because this app connects to Google Tasks, you need to provide your own API credentials to build it.
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
@@ -41,7 +43,8 @@ Because this app connects to Google Tasks, you need to provide your own API cred
 7. Name the downloaded JSON as `credentials.json` and drag & drop the file **into the project directory** (!Not the folder with the .sln file)
 
 
+
+
 Clone this repository to your local machine:
    ```bash
    git clone https://github.com/Daniel-Geron/Tasksbar.git
-

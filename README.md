@@ -30,17 +30,18 @@ To build and run this project, you will need:
 * [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 * A Google Cloud Console account (for the Tasks API)
 
-After building the project, the exe will be located in `bin\Debug\net8.0-windows\TasksBar.exe`
 
 ### Setting up the Google Tasks API
-Because this app connects to Google Tasks, you need to provide your own API credentials to build it.
+Because this app connects to Google Tasks, you need to provide your own API in order to save and sync tasks.
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project and enable the **Google Tasks API**.
 3. Navigate to **APIs & Services > Credentials**.
 4. Click **Create Credentials > OAuth client ID**.
 5. Choose **Desktop app** as the application type and create it.
 6. Click **Download JSON** on your new credential.
-7. Name the downloaded JSON as `credentials.json` and drag & drop the file **into the project directory** (!Not the folder with the .sln file)
+7. Name the downloaded JSON as `credentials.json` and drag & drop the file **into the project directory**
+   
+   NOTE: if you are just grabbing the release, drop the file to where `TasksBar.exe` resides
 
 
 

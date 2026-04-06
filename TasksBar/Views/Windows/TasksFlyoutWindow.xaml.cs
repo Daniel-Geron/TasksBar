@@ -211,7 +211,8 @@ namespace TasksBar
 
             var request = _googleTasksService.Tasks.List(_defaultTaskListId);
             request.ShowHidden = false;
-          
+            request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+
 
             var response = await request.ExecuteAsync();
 
@@ -220,7 +221,8 @@ namespace TasksBar
                 foreach (var gTask in response.Items)
                 {
                     if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
-                 
+                    if (!AppConfig.Settings.ShowCompletedTasks && gTask.Status == "completed") continue;
+
 
                     var taskItem = new TaskItem
                     {

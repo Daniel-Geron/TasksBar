@@ -10,6 +10,7 @@ namespace TasksBar
         public bool StayOnTop { get; set; } = false;
         public bool IsLocked { get; set; } = true;
         public bool EnableGoogleSync { get; set; } = false;
+        public bool ShowCompletedTasks { get; set; } = false;
         public WidgetPosition Position { get; set; } = WidgetPosition.BottomRight;
         public bool LaunchOnStartup { get; set; } = false;
 

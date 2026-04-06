@@ -78,7 +78,12 @@ namespace TasksBar
             this.Loaded += async (s, e) =>
             {
                 PlaySlideAnimation();
-                await InitializeGoogleTasksAsync();
+
+                // THE FIX: Only attempt to log in if Sync is turned on!
+                if (AppConfig.Settings.EnableGoogleSync)
+                {
+                    await InitializeGoogleTasksAsync();
+                }
             };
 
             this.StateChanged += Window_StateChanged;
@@ -160,6 +165,19 @@ namespace TasksBar
         {
             try
             {
+                // THE FIX: Check if the file exists before trying to log in!
+                string credsPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, "credentials.json");
+                if (!System.IO.File.Exists(credsPath))
+                {
+                    System.Windows.MessageBox.Show(
+                        "Welcome to TasksBar!\n\nTo connect to Google, you need to provide your own API credentials.\n\nPlease place your 'credentials.json' file in the same folder as this app and try again.",
+                        "Missing Credentials",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+
+                    return;
+                }
+
                 // Tell the central manager to handle the token/login process
                 await GoogleAuthManager.LoginAsync();
 
@@ -193,7 +211,7 @@ namespace TasksBar
 
             var request = _googleTasksService.Tasks.List(_defaultTaskListId);
             request.ShowHidden = false;
-            request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+          
 
             var response = await request.ExecuteAsync();
 
@@ -202,7 +220,7 @@ namespace TasksBar
                 foreach (var gTask in response.Items)
                 {
                     if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
-                    if (!AppConfig.Settings.ShowCompletedTasks && gTask.Status == "completed") continue;
+                 
 
                     var taskItem = new TaskItem
                     {

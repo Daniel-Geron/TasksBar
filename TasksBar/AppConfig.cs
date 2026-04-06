@@ -9,11 +9,8 @@ namespace TasksBar
         public bool UseAcrylic { get; set; } = true;
         public bool StayOnTop { get; set; } = false;
         public bool IsLocked { get; set; } = true;
-        public bool EnableGoogleSync { get; set; } = true;
+        public bool EnableGoogleSync { get; set; } = false;
         public WidgetPosition Position { get; set; } = WidgetPosition.BottomRight;
-
-        // --- NEW ADDITIONS ---
-        public bool ShowCompletedTasks { get; set; } = false;
         public bool LaunchOnStartup { get; set; } = false;
 
         // 0 = System Default, 1 = Light, 2 = Dark

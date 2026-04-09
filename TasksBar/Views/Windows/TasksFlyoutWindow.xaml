@@ -51,7 +51,7 @@
 
         <ui:Button Grid.Row="1" Appearance="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="4,8" Margin="0,0,0,12" Click="AddTaskTop_Click">
             <StackPanel Orientation="Horizontal">
-                <ui:SymbolIcon Symbol="Add20" Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" Margin="0,0,12,0"/>
+                <ui:SymbolIcon Symbol="Add20" Foreground="#00D5E1" Margin="0,0,12,0"/>
                 <TextBlock Text="Add a task" FontSize="14" FontWeight="Medium" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
             </StackPanel>
         </ui:Button>
@@ -279,7 +279,7 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <Rectangle Grid.Row="3" Fill="{DynamicResource SystemAccentColorPrimaryBrush}" Height="4" RadiusX="2" RadiusY="2" Width="60" VerticalAlignment="Bottom" HorizontalAlignment="Center"/>
+        <Rectangle Grid.Row="3" Fill="#00D5E1" Height="4" RadiusX="2" RadiusY="2" Width="60" VerticalAlignment="Bottom" HorizontalAlignment="Center"/>
 
         <ui:SnackbarPresenter x:Name="RootSnackbar" Grid.RowSpan="4" VerticalAlignment="Bottom" Margin="0,0,0,20"/>
 

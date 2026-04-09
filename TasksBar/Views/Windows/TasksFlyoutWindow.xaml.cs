@@ -279,8 +279,23 @@ namespace TasksBar
             }
 
             // SCENARIO 2: It's an existing task being updated
+         
             if (propertyName == nameof(TaskItem.IsCompleted) || propertyName == nameof(TaskItem.Details) || propertyName == nameof(TaskItem.Title))
             {
+                // THE GHOST FIX: If they completely erased the title, delete the task!
+                if (string.IsNullOrWhiteSpace(item.Title))
+                {
+                    await _googleTasksService.Tasks.Delete(_defaultTaskListId, item.Id).ExecuteAsync();
+
+                    // Remove it from the UI thread safely
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (MyTasks.Contains(item)) MyTasks.Remove(item);
+                    }));
+
+                    return; // Stop here so it doesn't try to update!
+                }
+
                 var gTask = new Google.Apis.Tasks.v1.Data.Task
                 {
                     Id = item.Id,
@@ -298,7 +313,9 @@ namespace TasksBar
         private void AddTaskTop_Click(object sender, RoutedEventArgs e)
         {
             var taskItem = new TaskItem { IsNew = true, Title = "", Details = "", IsCompleted = false };
-            taskItem.PropertyChanged += async (s, args) => await TaskItem_PropertyChanged(taskItem, args.PropertyName);
+
+            // THE MEMORY FIX: Use the named method here too!
+            taskItem.PropertyChanged += OnTaskPropertyChanged;
 
             // Insert at TOP (Index 0) instead of Add()
             MyTasks.Insert(0, taskItem);

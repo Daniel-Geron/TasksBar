@@ -45,6 +45,7 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <ui:Button x:Name="PinButton" Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Pin20}" Click="PinButton_Click" Padding="4" Margin="0,0,4,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                <ui:Button Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Note20}" Click="AddNote_Click" Padding="4" Margin="0,0,4,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
                 <ui:Button Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Settings20, Filled=True}" Click="Settings_Click" Padding="4" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
             </StackPanel>
         </Grid>

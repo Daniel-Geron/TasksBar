@@ -1,0 +1,49 @@
+﻿<ui:FluentWindow x:Class="TasksBar.StickyNoteWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:local="clr-namespace:TasksBar"
+                 Title="Sticky Note" Height="250" Width="250"
+                 WindowStyle="None"
+                 ShowInTaskbar="False"
+                 ResizeMode="CanResizeWithGrip"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 Topmost="True">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <local:AutoRtlConverter x:Key="AutoRtlConverter" />
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid Margin="12" Background="Transparent" MouseLeftButtonDown="Grid_MouseLeftButtonDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+            <ui:Button Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Dismiss20}" Click="CloseButton_Click" Padding="4" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </StackPanel>
+
+        <ui:TextBox Grid.Row="1"
+                    AcceptsReturn="True"
+                    TextWrapping="Wrap"
+                    VerticalContentAlignment="Top"
+                    ClearButtonEnabled="False"
+                    BorderThickness="0"
+                    Background="Transparent"
+                    FontSize="14"
+                    PlaceholderText="Write a note..."
+                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                    FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}">
+            <ui:TextBox.Resources>
+                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+            </ui:TextBox.Resources>
+        </ui:TextBox>
+    </Grid>
+</ui:FluentWindow>

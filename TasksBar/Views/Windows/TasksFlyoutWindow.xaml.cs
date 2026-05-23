@@ -262,6 +262,18 @@ namespace TasksBar
 
             // Note: If you have an AppConfig.Save() method, call it here!
         }
+
+        private void AddNote_Click(object sender, RoutedEventArgs e)
+        {
+            // Spawns a new independent note window
+            var noteWindow = new StickyNoteWindow();
+
+            // Optionally, spawn it slightly offset from the main app so it doesn't overlap perfectly
+            noteWindow.Left = this.Left - 260;
+            noteWindow.Top = this.Top;
+
+            noteWindow.Show();
+        }
         private async Task TaskItem_PropertyChanged(TaskItem item, string propertyName)
         {
             if (!AppConfig.Settings.EnableGoogleSync || _googleTasksService == null) return;

@@ -147,13 +147,13 @@ namespace TasksBar
             _trayIcon.Visible = true;
 
             // Handle Left-Click to toggle the window
-            _trayIcon.MouseClick += (s, e) =>
+         
+            _trayIcon.MouseClick += async (s, e) => // <-- IMPORTANT: Add 'async' right here!
             {
                 if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
-                    if (this.IsVisible)
+                    if (this.IsVisible && this.Opacity > 0)
                     {
-                        // Flush the RAM when manually hidden via the tray!
                         PlaySlideOutAnimation();
                     }
                     else
@@ -162,8 +162,15 @@ namespace TasksBar
                         this.Activate();
                         this.Focus();
 
-                        
-                        PlaySlideAnimation(); 
+                        PlaySlideAnimation();
+
+                        // --- THE FRESH SYNC FIX ---
+                        // Quietly pull the newest tasks from Google in the background 
+                        // every time the window is opened from the system tray!
+                        if (AppConfig.Settings.EnableGoogleSync)
+                        {
+                            await SyncTasksFromGoogle();
+                        }
                     }
                 }
             };

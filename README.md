@@ -14,10 +14,11 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 ## ✨ Features
 
 * **Native Windows 11 Design:** Uses `Wpf.Ui` to deliver gorgeous Mica and Acrylic backdrops, matching your system's light/dark themes seamlessly.
+* **Hyper-Optimized Memory:** Uses aggressive memory-flushing techniques and Workstation GC to drop idle RAM usage down to ~2MB while hidden.
 * **System Tray Integration:** Runs silently in the background as a lightweight NotifyIcon widget. 
 * **Two-Way Google Sync:** Instantly pulls, creates, and completes tasks directly from your Google Account.
+* **Sticky Notes:** Quickly write down anything you want.
 * **Auto-Startup:** Option to register directly with the Windows Registry to launch silently on boot.
-* **Hyper-Optimized Memory:** Uses aggressive memory-flushing techniques and Workstation GC to drop idle RAM usage down to ~2MB while hidden.
 * **Satisfying UX:** Features custom-built, bouncy physics animations for task completion.
 
 <img width="1328" height="716" alt="Recording 2026-04-19 100340" src="https://github.com/user-attachments/assets/d18b1f45-82bd-49f6-b0df-eef0fae54156" />
@@ -30,10 +31,8 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 To build and run this project, you will need:
 * Visual Studio 2022 (or newer)
 * [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
-* A Google Cloud Console account (for the Tasks API)
 
-### Setting up the Google Tasks API
-Because this app connects to Google Tasks, you need to provide your own API credentials in order to save and sync tasks.
+### (Optional) Setting up Google Tasks API
 
 **Do not skip any step!**
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).

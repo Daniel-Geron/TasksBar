@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Wpf.Ui.Controls;
 
@@ -6,11 +8,36 @@ namespace TasksBar
 {
     public partial class StickyNoteWindow : FluentWindow
     {
-        public StickyNoteWindow()
+        private StickyNoteModel _model;
+
+        // Constructor for loading EXISTING notes
+        public StickyNoteWindow(StickyNoteModel model)
         {
             InitializeComponent();
+            _model = model;
+            ApplyThemeSettings();
 
-            // 1. Apply the saved theme (Light/Dark/System)
+            this.Left = _model.Left;
+            this.Top = _model.Top;
+            NoteTextBox.Text = _model.Text;
+        }
+
+        // Constructor for creating BRAND NEW notes
+        public StickyNoteWindow(double startLeft, double startTop)
+        {
+            InitializeComponent();
+            ApplyThemeSettings();
+
+            _model = new StickyNoteModel { Left = startLeft, Top = startTop };
+            this.Left = startLeft;
+            this.Top = startTop;
+
+            LocalDataManager.ActiveNotes.Add(_model);
+            LocalDataManager.SaveNotes();
+        }
+
+        private void ApplyThemeSettings()
+        {
             if (AppConfig.Settings.AppTheme == 1)
                 Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
             else if (AppConfig.Settings.AppTheme == 2)
@@ -20,25 +47,37 @@ namespace TasksBar
                 Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
                 Wpf.Ui.Appearance.SystemThemeWatcher.Watch(this);
             }
-
             Wpf.Ui.Appearance.ApplicationAccentColorManager.ApplySystemAccent();
-
-            // 2. Apply the saved visual backdrop setting (Mica/Acrylic)
             this.WindowBackdropType = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
         }
 
         private void Grid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Allows the user to drag the note by clicking anywhere on the background
             if (e.ChangedButton == MouseButton.Left)
             {
                 this.DragMove();
+                // Save new position after dragging
+                _model.Left = this.Left;
+                _model.Top = this.Top;
+                LocalDataManager.SaveNotes();
+            }
+        }
+
+        private void NoteTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            // Auto-save the JSON file every time a letter is typed!
+            if (_model != null)
+            {
+                _model.Text = NoteTextBox.Text;
+                LocalDataManager.SaveNotes();
             }
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // Close and destroy the note window
+            // Remove from the master list and save the JSON before closing
+            LocalDataManager.ActiveNotes.Remove(_model);
+            LocalDataManager.SaveNotes();
             this.Close();
         }
     }

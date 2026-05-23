@@ -28,6 +28,8 @@
         </StackPanel>
 
         <ui:TextBox Grid.Row="1"
+                    x:Name="NoteTextBox"
+                    TextChanged="NoteTextBox_TextChanged"
                     AcceptsReturn="True"
                     TextWrapping="Wrap"
                     VerticalContentAlignment="Top"

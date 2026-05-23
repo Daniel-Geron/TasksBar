@@ -1,0 +1,49 @@
+﻿<Page x:Class="TasksBar.NotesPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="Sticky Notes">
+
+    <Grid Margin="20,10,20,30" MaxWidth="800">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Manage Notes" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,24" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+
+        <ListView x:Name="NotesListView" Grid.Row="1" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <ui:CardControl Margin="0,0,0,8">
+                        <ui:CardControl.Header>
+                            <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" MaxWidth="400" MaxHeight="60" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </ui:CardControl.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Button Content="Open" Icon="{ui:SymbolIcon Symbol=Open24}" Margin="0,0,8,0" Click="OpenNote_Click" Tag="{Binding}"/>
+
+                            <ui:Button Appearance="Danger" Icon="{ui:SymbolIcon Symbol=Delete24}" Click="DeleteNote_Click" Tag="{Binding}"/>
+                        </StackPanel>
+                    </ui:CardControl>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Margin" Value="0,0,0,4"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <ContentPresenter />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+    </Grid>
+</Page>

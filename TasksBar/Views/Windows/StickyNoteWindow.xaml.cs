@@ -9,6 +9,7 @@ namespace TasksBar
     public partial class StickyNoteWindow : FluentWindow
     {
         private StickyNoteModel _model;
+        public StickyNoteModel GetModel() => _model;
 
         // Constructor for loading EXISTING notes
         public StickyNoteWindow(StickyNoteModel model)
@@ -75,9 +76,7 @@ namespace TasksBar
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // Remove from the master list and save the JSON before closing
-            LocalDataManager.ActiveNotes.Remove(_model);
-            LocalDataManager.SaveNotes();
+           
             this.Close();
         }
     }

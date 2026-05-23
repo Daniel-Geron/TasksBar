@@ -115,6 +115,9 @@ namespace TasksBar
         {
             this.Hide(); // Hide the window
 
+            // THE FIX: Reset Topmost back to the user's actual saved preference!
+            this.Topmost = AppConfig.Settings.StayOnTop;
+
             // Force the memory flush immediately after hiding
             try
             {
@@ -584,9 +587,14 @@ namespace TasksBar
             // Check if the settings window is currently open
             bool isSettingsOpen = _settingsWindow != null && _settingsWindow.IsLoaded;
 
+            // This perfectly translates to: "If unfocused AND not pinned"
             if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings)
             {
-                // THE FIX: Use our new centralized method
+                // PRO TRICK: Temporarily force the window to stay on top so it doesn't 
+                // get hidden behind the app you just clicked while it tries to animate!
+                this.Topmost = true;
+
+                // Trigger the sleek exit animation
                 PlaySlideOutAnimation();
             }
         }

@@ -79,19 +79,44 @@ namespace TasksBar
             {
                 PlaySlideAnimation();
 
-                // THE FIX: Only attempt to log in if Sync is turned on!
+                LocalDataManager.LoadNotes();
+                foreach (var note in LocalDataManager.ActiveNotes)
+                {
+                    new StickyNoteWindow(note).Show();
+                }
+
                 if (AppConfig.Settings.EnableGoogleSync)
                 {
                     await InitializeGoogleTasksAsync();
+                }
+                else
+                {
+                    // THE NEW FIX: Load tasks from JSON if Google is off!
+                    LoadLocalTasks();
                 }
             };
 
             this.StateChanged += Window_StateChanged;
             this.Deactivated += Window_Deactivated;
         }
+        private void LoadLocalTasks()
+        {
+            var localTasks = LocalDataManager.LoadTasks();
+            MyTasks.Clear();
+
+            foreach (var task in localTasks)
+            {
+                // Re-hook the property changed event so they save when edited
+                task.PropertyChanged += OnTaskPropertyChanged;
+                MyTasks.Add(task);
+            }
+        }
         private void HideAndFlushMemory()
         {
             this.Hide(); // Hide the window
+
+            // THE FIX: Reset Topmost back to the user's actual saved preference!
+            this.Topmost = AppConfig.Settings.StayOnTop;
 
             // Force the memory flush immediately after hiding
             try
@@ -122,14 +147,14 @@ namespace TasksBar
             _trayIcon.Visible = true;
 
             // Handle Left-Click to toggle the window
-            _trayIcon.MouseClick += (s, e) =>
+         
+            _trayIcon.MouseClick += async (s, e) => // <-- IMPORTANT: Add 'async' right here!
             {
                 if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
-                    if (this.IsVisible)
+                    if (this.IsVisible && this.Opacity > 0)
                     {
-                        // Flush the RAM when manually hidden via the tray!
-                        HideAndFlushMemory();
+                        PlaySlideOutAnimation();
                     }
                     else
                     {
@@ -137,8 +162,15 @@ namespace TasksBar
                         this.Activate();
                         this.Focus();
 
-                        
-                        PlaySlideAnimation(); 
+                        PlaySlideAnimation();
+
+                        //// --- THE FRESH SYNC FIX ---
+                        //// Quietly pull the newest tasks from Google in the background 
+                        //// every time the window is opened from the system tray!
+                        //if (AppConfig.Settings.EnableGoogleSync)
+                        //{
+                        //    await SyncTasksFromGoogle();
+                        //}
                     }
                 }
             };
@@ -262,8 +294,25 @@ namespace TasksBar
 
             // Note: If you have an AppConfig.Save() method, call it here!
         }
+
+        private void AddNote_Click(object sender, RoutedEventArgs e)
+        {
+            // Pass the coordinates so the window knows where to save itself!
+            var noteWindow = new StickyNoteWindow(this.Left - 260, this.Top);
+            noteWindow.Show();
+        }
         private async Task TaskItem_PropertyChanged(TaskItem item, string propertyName)
         {
+            if (!AppConfig.Settings.EnableGoogleSync)
+            {
+                // Assign a fake ID so UI logic doesn't break, then save to JSON
+                if (item.Id == null) item.Id = Guid.NewGuid().ToString();
+                LocalDataManager.SaveTasks(MyTasks);
+                return;
+            }
+
+            if (_googleTasksService == null) return;
+
             if (!AppConfig.Settings.EnableGoogleSync || _googleTasksService == null) return;
 
             // SCENARIO 1: It's a new task (no ID) and you just finished typing the Title
@@ -314,11 +363,16 @@ namespace TasksBar
         {
             var taskItem = new TaskItem { IsNew = true, Title = "", Details = "", IsCompleted = false };
 
-            // THE MEMORY FIX: Use the named method here too!
             taskItem.PropertyChanged += OnTaskPropertyChanged;
 
-            // Insert at TOP (Index 0) instead of Add()
             MyTasks.Insert(0, taskItem);
+
+            // THE IRON WALL: Only save to local JSON if Google is completely OFF
+            if (!AppConfig.Settings.EnableGoogleSync)
+            {
+                LocalDataManager.SaveTasks(MyTasks);
+            }
+
             TasksListView.ScrollIntoView(taskItem);
         }
 
@@ -364,6 +418,13 @@ namespace TasksBar
 
                     // 2. Remove from UI
                     MyTasks.Remove(task);
+                    LocalDataManager.SaveTasks(MyTasks);
+
+                    // THE IRON WALL: Only save to local JSON if Google is completely OFF
+                    if (!AppConfig.Settings.EnableGoogleSync)
+                    {
+                        LocalDataManager.SaveTasks(MyTasks);
+                    }
 
                     _snackbarService.Show(
                         "Task Completed",
@@ -403,6 +464,18 @@ namespace TasksBar
                         Application.Current.Dispatcher.BeginInvoke(new Action(async () =>
                         {
                             MyTasks.Remove(taskToDelete);
+                            if (AppConfig.Settings.EnableGoogleSync)
+                            {
+                                if (_googleTasksService != null && taskToDelete.Id != null)
+                                {
+                                    await _googleTasksService.Tasks.Delete(_defaultTaskListId, taskToDelete.Id).ExecuteAsync();
+                                }
+                            }
+                            else
+                            {
+                                LocalDataManager.SaveTasks(MyTasks);
+                            }
+                                LocalDataManager.SaveTasks(MyTasks);
                             if (_googleTasksService != null && taskToDelete.Id != null)
                             {
                                 await _googleTasksService.Tasks.Delete(_defaultTaskListId, taskToDelete.Id).ExecuteAsync();
@@ -461,7 +534,8 @@ namespace TasksBar
                 }
                 else if (!AppConfig.Settings.EnableGoogleSync && previousSyncState)
                 {
-                    MyTasks.Clear(); // Clear the UI if they just toggled sync off
+                    MyTasks.Clear();
+                    LoadLocalTasks(); // Clear the UI if they just toggled sync off
                 }
             };
 
@@ -520,10 +594,15 @@ namespace TasksBar
             // Check if the settings window is currently open
             bool isSettingsOpen = _settingsWindow != null && _settingsWindow.IsLoaded;
 
+            // This perfectly translates to: "If unfocused AND not pinned"
             if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings)
             {
-                // THE FIX: Use our new centralized method
-                HideAndFlushMemory();
+                // PRO TRICK: Temporarily force the window to stay on top so it doesn't 
+                // get hidden behind the app you just clicked while it tries to animate!
+                this.Topmost = true;
+
+                // Trigger the sleek exit animation
+                PlaySlideOutAnimation();
             }
         }
 
@@ -591,5 +670,56 @@ namespace TasksBar
             this.BeginAnimation(Window.TopProperty, slideAnim);
             this.BeginAnimation(Window.OpacityProperty, fadeAnim);
         }
+        private void PlaySlideOutAnimation()
+        {
+            var desktopWorkingArea = SystemParameters.WorkArea;
+            double startTop = this.Top; // Start from wherever it currently is
+            double finalTop = 0;
+
+            // Recalculate the "hidden" position based on where it is on the screen
+            if (_isCustomDragged)
+            {
+                if (this.Top < (desktopWorkingArea.Height / 2))
+                    finalTop = this.Top - 50; // Top half -> slide up
+                else
+                    finalTop = this.Top + 50; // Bottom half -> slide down
+            }
+            else
+            {
+                if (_currentPosition == WidgetPosition.TopLeft || _currentPosition == WidgetPosition.TopCenter || _currentPosition == WidgetPosition.TopRight)
+                    finalTop = this.Top - 50;
+                else
+                    finalTop = this.Top + 50;
+            }
+
+            // EaseIn makes it start slow and accelerate out (perfect for exit animations)
+            CubicEase cubicEaseIn = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+            DoubleAnimation slideAnim = new DoubleAnimation()
+            {
+                From = startTop,
+                To = finalTop,
+                Duration = new Duration(TimeSpan.FromMilliseconds(200)), // Slightly faster exit feels snappier
+                EasingFunction = cubicEaseIn
+            };
+
+            DoubleAnimation fadeAnim = new DoubleAnimation()
+            {
+                From = 1,
+                To = 0,
+                Duration = new Duration(TimeSpan.FromMilliseconds(150)),
+                EasingFunction = cubicEaseIn
+            };
+
+            // THE MAGIC TRICK: Wait for the fade out to finish, THEN completely hide and flush the RAM
+            fadeAnim.Completed += (s, args) =>
+            {
+                HideAndFlushMemory();
+            };
+
+            this.BeginAnimation(Window.TopProperty, slideAnim);
+            this.BeginAnimation(Window.OpacityProperty, fadeAnim);
+        }
+
     }
 }

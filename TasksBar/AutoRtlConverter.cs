@@ -12,16 +12,16 @@ namespace TasksBar
         {
             if (value is string text && !string.IsNullOrWhiteSpace(text))
             {
-                // Find the very first actual letter in the text
-                var firstLetter = text.FirstOrDefault(char.IsLetter);
+                // THE FIX: Check if ANY character in the entire string is in the Hebrew/Arabic Unicode block
+                bool containsHebrew = text.Any(c => c >= 0x0590 && c <= 0x06FF);
 
-                // Check if the character is in the Hebrew or Arabic Unicode blocks
-                if (firstLetter >= 0x0590 && firstLetter <= 0x06FF)
+                if (containsHebrew)
                 {
                     return FlowDirection.RightToLeft;
                 }
             }
-            // Default to English LTR if empty or starts with English
+
+            // Default to English LTR if empty or contains absolutely no Hebrew
             return FlowDirection.LeftToRight;
         }
 

@@ -27,6 +27,10 @@ namespace TasksBar
             {
                 RootFrame.Navigate(new BehaviorPage());
             }
+            else if (SidebarList.SelectedIndex == 2)
+            {              
+                RootFrame.Navigate(new NotesPage());
+            }
         }
     }
 }

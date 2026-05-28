@@ -31,10 +31,17 @@
                     </StackPanel>
                 </ListBoxItem>
 
-                <ListBoxItem Padding="12,10">
+                <ListBoxItem Padding="12,10" Margin="0,0,0,4">
                     <StackPanel Orientation="Horizontal">
                         <ui:SymbolIcon Symbol="CloudArrowUp24" Margin="0,0,12,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         <TextBlock Text="Behavior &amp; Sync" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ListBoxItem>
+
+                <ListBoxItem Padding="12,10">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Note24" Margin="0,0,12,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="Sticky Notes" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
                     </StackPanel>
                 </ListBoxItem>
 

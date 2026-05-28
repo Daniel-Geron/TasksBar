@@ -164,13 +164,13 @@ namespace TasksBar
 
                         PlaySlideAnimation();
 
-                        // --- THE FRESH SYNC FIX ---
-                        // Quietly pull the newest tasks from Google in the background 
-                        // every time the window is opened from the system tray!
-                        if (AppConfig.Settings.EnableGoogleSync)
-                        {
-                            await SyncTasksFromGoogle();
-                        }
+                        //// --- THE FRESH SYNC FIX ---
+                        //// Quietly pull the newest tasks from Google in the background 
+                        //// every time the window is opened from the system tray!
+                        //if (AppConfig.Settings.EnableGoogleSync)
+                        //{
+                        //    await SyncTasksFromGoogle();
+                        //}
                     }
                 }
             };

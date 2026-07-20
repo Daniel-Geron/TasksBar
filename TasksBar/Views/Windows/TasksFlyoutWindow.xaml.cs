@@ -2,6 +2,7 @@
 using Google.Apis.Services;
 using Google.Apis.Tasks.v1;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -34,9 +35,7 @@ namespace TasksBar
         private double _customLeft = 0;
         private double _customTop = 0;
         // Google API Service
-        private TasksService _googleTasksService;
-        private string _defaultTaskListId = "@default";
-        private SnackbarService _snackbarService;
+        private TasksService _googleTasksService;        
         private System.Windows.Forms.NotifyIcon _trayIcon;
         public TasksFlyoutWindow()
         {
@@ -69,8 +68,7 @@ namespace TasksBar
             // Force the Pin icon to match the loaded setting immediately!
             UpdatePinIcon();
 
-            _snackbarService = new SnackbarService();
-            _snackbarService.SetSnackbarPresenter(RootSnackbar);
+          
 
             MyTasks = new ObservableCollection<TaskItem>();
             TasksListView.ItemsSource = MyTasks;
@@ -98,18 +96,21 @@ namespace TasksBar
 
             this.StateChanged += Window_StateChanged;
             this.Deactivated += Window_Deactivated;
+            this.Activated += Window_Activated;
         }
-        private void LoadLocalTasks()
+        public void LoadLocalTasks()
         {
-            var localTasks = LocalDataManager.LoadTasks();
+            // THE FIX: Pass the SelectedListId so it knows which JSON file to pull from!
+            var localTasks = LocalDataManager.LoadTasks(AppConfig.Settings.SelectedListId);
             MyTasks.Clear();
 
             foreach (var task in localTasks)
             {
-                // Re-hook the property changed event so they save when edited
                 task.PropertyChanged += OnTaskPropertyChanged;
                 MyTasks.Add(task);
             }
+
+            _ = PopulateTrayMenu();
         }
         private void HideAndFlushMemory()
         {
@@ -139,16 +140,17 @@ namespace TasksBar
         private void SetupTrayIcon()
         {
             _trayIcon = new System.Windows.Forms.NotifyIcon();
-
-          
-            // This automatically extracts the beautiful .exe icon you set in the project properties!
             _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
             _trayIcon.Text = "TasksBar";
             _trayIcon.Visible = true;
 
+            // THE FIX: Add a default menu instantly so right-click is never broken
+            var defaultMenu = new System.Windows.Forms.ContextMenuStrip();
+            defaultMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
+            _trayIcon.ContextMenuStrip = defaultMenu;
+
             // Handle Left-Click to toggle the window
-         
-            _trayIcon.MouseClick += async (s, e) => // <-- IMPORTANT: Add 'async' right here!
+            _trayIcon.MouseClick += async (s, e) =>
             {
                 if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
@@ -161,24 +163,10 @@ namespace TasksBar
                         this.Show();
                         this.Activate();
                         this.Focus();
-
                         PlaySlideAnimation();
-
-                        //// --- THE FRESH SYNC FIX ---
-                        //// Quietly pull the newest tasks from Google in the background 
-                        //// every time the window is opened from the system tray!
-                        //if (AppConfig.Settings.EnableGoogleSync)
-                        //{
-                        //    await SyncTasksFromGoogle();
-                        //}
                     }
                 }
             };
-
-            // Handle Right-Click to close the app completely
-            var contextMenu = new System.Windows.Forms.ContextMenuStrip();
-            contextMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
-            _trayIcon.ContextMenuStrip = contextMenu;
         }
 
         // Ensure the icon cleans itself up when the app completely closes
@@ -217,13 +205,14 @@ namespace TasksBar
                 _googleTasksService = GoogleAuthManager.GetTasksService();
 
                 await SyncTasksFromGoogle();
+                await PopulateTrayMenu();
             }
             catch (Exception ex)
             {
                 System.Windows.MessageBox.Show($"Failed to connect to Google: {ex.Message}");
             }
         }
-        private async Task SyncTasksFromGoogle()
+        public async Task SyncTasksFromGoogle()
         {
             if (_googleTasksService == null) return;
 
@@ -241,7 +230,7 @@ namespace TasksBar
       
 
 
-            var request = _googleTasksService.Tasks.List(_defaultTaskListId);
+            var request = _googleTasksService.Tasks.List(AppConfig.Settings.SelectedListId);
             request.ShowHidden = false;
             request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
 
@@ -307,7 +296,7 @@ namespace TasksBar
             {
                 // Assign a fake ID so UI logic doesn't break, then save to JSON
                 if (item.Id == null) item.Id = Guid.NewGuid().ToString();
-                LocalDataManager.SaveTasks(MyTasks);
+                LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                 return;
             }
 
@@ -321,7 +310,7 @@ namespace TasksBar
                 if ((propertyName == nameof(TaskItem.Title) || propertyName == nameof(TaskItem.Details)) && !string.IsNullOrWhiteSpace(item.Title))
                 {
                     var newGTask = new Google.Apis.Tasks.v1.Data.Task { Title = item.Title, Notes = item.Details };
-                    var createdTask = await _googleTasksService.Tasks.Insert(newGTask, _defaultTaskListId).ExecuteAsync();
+                    var createdTask = await _googleTasksService.Tasks.Insert(newGTask, AppConfig.Settings.SelectedListId).ExecuteAsync();
                     item.Id = createdTask.Id; // Save the real Google ID
                 }
                 return;
@@ -334,7 +323,7 @@ namespace TasksBar
                 // THE GHOST FIX: If they completely erased the title, delete the task!
                 if (string.IsNullOrWhiteSpace(item.Title))
                 {
-                    await _googleTasksService.Tasks.Delete(_defaultTaskListId, item.Id).ExecuteAsync();
+                    await _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync();
 
                     // Remove it from the UI thread safely
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -352,7 +341,7 @@ namespace TasksBar
                     Notes = item.Details,
                     Status = item.IsCompleted ? "completed" : "needsAction"
                 };
-                await _googleTasksService.Tasks.Update(gTask, _defaultTaskListId, item.Id).ExecuteAsync();
+                await _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync();
             }
         }
 
@@ -370,7 +359,7 @@ namespace TasksBar
             // THE IRON WALL: Only save to local JSON if Google is completely OFF
             if (!AppConfig.Settings.EnableGoogleSync)
             {
-                LocalDataManager.SaveTasks(MyTasks);
+                LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
             }
 
             TasksListView.ScrollIntoView(taskItem);
@@ -405,55 +394,62 @@ namespace TasksBar
                 }), System.Windows.Threading.DispatcherPriority.Input);
             }
         }
-   
-        private async void CompleteTask_Click(object sender, RoutedEventArgs e)
+
+        private async void CompleteTask_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is System.Windows.Controls.Primitives.ToggleButton btn && btn.Tag is TaskItem task)
             {
+                // 1. Catch the click INSTANTLY before the layout has a chance to shift
+                e.Handled = true;
+
+                // 2. Safely force the previous text box to save its changes
+                Keyboard.ClearFocus();
+
+                // 3. Manually toggle the completion state since we intercepted the raw mouse click
+                task.IsCompleted = !task.IsCompleted;
+                btn.IsChecked = task.IsCompleted;
+
+                // 4. Run your original completion logic
                 if (task.IsCompleted)
                 {
-                    // 1. Wait for the smooth strikethrough effect
+                    // Wait for the smooth strikethrough effect
                     await Task.Delay(1500);
                     if (!task.IsCompleted) return;
 
-                    // 2. Remove from UI
+                    // Remove from UI
                     MyTasks.Remove(task);
-                    LocalDataManager.SaveTasks(MyTasks);
+                    LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
 
-                    // THE IRON WALL: Only save to local JSON if Google is completely OFF
                     if (!AppConfig.Settings.EnableGoogleSync)
                     {
-                        LocalDataManager.SaveTasks(MyTasks);
+                        LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                     }
 
-                    _snackbarService.Show(
-                        "Task Completed",
-                        task.Title,
-                        Wpf.Ui.Controls.ControlAppearance.Dark,
-                        new Wpf.Ui.Controls.SymbolIcon(Wpf.Ui.Controls.SymbolRegular.Checkmark24),
-                        TimeSpan.FromSeconds(3)
-                    );
+                    ShowCustomToast(task.Title);
 
-                    // 3. THE FIX: Include Title and Notes so Google doesn't wipe them!
                     if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null && task.Id != null)
                     {
                         var gTask = new Google.Apis.Tasks.v1.Data.Task
                         {
                             Id = task.Id,
-                            Title = task.Title,   // Keep the title!
-                            Notes = task.Details, // Keep the notes!
+                            Title = task.Title,
+                            Notes = task.Details,
                             Status = "completed"
                         };
-                        await _googleTasksService.Tasks.Update(gTask, _defaultTaskListId, task.Id).ExecuteAsync();
+                        await _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, task.Id).ExecuteAsync();
                     }
                 }
             }
         }
 
-        private void MoreOptions_Click(object sender, RoutedEventArgs e)
+        private void MoreOptions_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is Wpf.Ui.Controls.Button btn)
             {
+                // Stop the layout shift
+                e.Handled = true;
+                Keyboard.ClearFocus();
+
                 var menu = new System.Windows.Controls.ContextMenu();
                 var deleteItem = new System.Windows.Controls.MenuItem { Header = "Delete" };
 
@@ -468,17 +464,17 @@ namespace TasksBar
                             {
                                 if (_googleTasksService != null && taskToDelete.Id != null)
                                 {
-                                    await _googleTasksService.Tasks.Delete(_defaultTaskListId, taskToDelete.Id).ExecuteAsync();
+                                    await _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, taskToDelete.Id).ExecuteAsync();
                                 }
                             }
                             else
                             {
-                                LocalDataManager.SaveTasks(MyTasks);
+                                LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                             }
-                                LocalDataManager.SaveTasks(MyTasks);
+                            LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                             if (_googleTasksService != null && taskToDelete.Id != null)
                             {
-                                await _googleTasksService.Tasks.Delete(_defaultTaskListId, taskToDelete.Id).ExecuteAsync();
+                                await _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, taskToDelete.Id).ExecuteAsync();
                             }
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }
@@ -605,7 +601,17 @@ namespace TasksBar
                 PlaySlideOutAnimation();
             }
         }
+        private void Window_Activated(object sender, EventArgs e)
+        {
+            // THE FIX: Windows 11 intentionally drops Acrylic when a window loses focus. 
+            // Sometimes it "forgets" to redraw it when focus returns. 
+            // Toggling to None and back instantly forces the DWM to redraw the blur!
 
+            var expectedBackdrop = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
+
+            this.WindowBackdropType = WindowBackdropType.None;
+            this.WindowBackdropType = expectedBackdrop;
+        }
         private void PlaySlideAnimation()
         {
             var desktopWorkingArea = SystemParameters.WorkArea;
@@ -719,6 +725,113 @@ namespace TasksBar
 
             this.BeginAnimation(Window.TopProperty, slideAnim);
             this.BeginAnimation(Window.OpacityProperty, fadeAnim);
+        }
+        public async Task PopulateTrayMenu()
+        {
+            // 1. Fetch the data on the background thread FIRST
+            IList<Google.Apis.Tasks.v1.Data.TaskList> googleLists = null;
+
+            if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null)
+            {
+                try
+                {
+                    var response = await _googleTasksService.Tasklists.List().ExecuteAsync();
+                    if (response != null)
+                    {
+                        googleLists = response.Items;
+                    }
+                }
+                catch { /* Failsafe if offline */ }
+            }
+
+            // 2. Build the WinForms UI strictly on the main thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+
+                if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null)
+                {
+                    if (googleLists != null)
+                    {
+                        foreach (var lst in googleLists)
+                        {
+                            var item = new System.Windows.Forms.ToolStripMenuItem(lst.Title);
+                            item.Checked = (lst.Id == AppConfig.Settings.SelectedListId);
+                            item.Click += async (s, e) =>
+                            {
+                                AppConfig.Settings.SelectedListId = lst.Id;
+                                AppConfig.Save();
+                                await SyncTasksFromGoogle();
+                                await PopulateTrayMenu();
+                                OpenFlyoutFromTray();
+                            };
+                            contextMenu.Items.Add(item);
+                        }
+                    }
+                }
+                else
+                {
+                    var localLists = LocalDataManager.GetLocalLists();
+                    foreach (var lst in localLists)
+                    {
+                        var item = new System.Windows.Forms.ToolStripMenuItem(lst.Title);
+                        item.Checked = (lst.Id == AppConfig.Settings.SelectedListId);
+                        item.Click += async (s, e) =>
+                        {
+                            AppConfig.Settings.SelectedListId = lst.Id;
+                            AppConfig.Save();
+                            LoadLocalTasks();
+                            await PopulateTrayMenu();
+                            OpenFlyoutFromTray();
+                        };
+                        contextMenu.Items.Add(item);
+                    }
+                }
+
+                contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+                contextMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
+
+                // Apply the newly built menu safely
+                _trayIcon.ContextMenuStrip = contextMenu;
+            });
+        }
+        private void OpenFlyoutFromTray()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                this.Show();
+                this.Activate();
+                this.Focus();
+                PlaySlideAnimation();
+            });
+        }
+        private int _toastCounter = 0;
+
+        private async void ShowCustomToast(string title)
+        {
+            ToastTaskTitle.Text = title;
+            _toastCounter++;
+            int currentToast = _toastCounter;
+
+            // 1. Slide up and Fade in
+            var slideUp = new DoubleAnimation(20, 0, TimeSpan.FromMilliseconds(250)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250));
+
+            ToastTransform.BeginAnimation(TranslateTransform.YProperty, slideUp);
+            CustomToastPopup.BeginAnimation(OpacityProperty, fadeIn);
+
+            // 2. Wait 3 seconds
+            await Task.Delay(3000);
+
+            // 3. Only fade out if another task hasn't been completed while we were waiting!
+            if (currentToast == _toastCounter)
+            {
+                var slideDown = new DoubleAnimation(0, 20, TimeSpan.FromMilliseconds(250)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
+                var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(250));
+
+                ToastTransform.BeginAnimation(TranslateTransform.YProperty, slideDown);
+                CustomToastPopup.BeginAnimation(OpacityProperty, fadeOut);
+            }
         }
 
     }

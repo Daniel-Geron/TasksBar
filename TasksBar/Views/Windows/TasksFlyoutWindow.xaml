@@ -83,8 +83,9 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
+                            <!-- The Completion Toggle Button -->
                             <ToggleButton Grid.Column="0" IsChecked="{Binding IsCompleted}" VerticalAlignment="Top" Margin="0,3,10,0"
-                                          Click="CompleteTask_Click" Tag="{Binding}" Background="Transparent" BorderThickness="0">
+                      PreviewMouseLeftButtonDown="CompleteTask_PreviewMouseDown" Tag="{Binding}" Background="Transparent" BorderThickness="0">
                                 <ToggleButton.Style>
                                     <Style TargetType="ToggleButton">
                                         <Setter Property="Template">
@@ -257,10 +258,11 @@
                                 </ui:TextBox>
                             </StackPanel>
 
+                            <!-- The More Options Button -->
                             <ui:Button x:Name="MoreButton" Grid.Column="2" Appearance="Transparent" VerticalAlignment="Top" 
-                                       Icon="{ui:SymbolIcon Symbol=MoreHorizontal20}" Padding="2" Margin="0,2,0,0"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                       Click="MoreOptions_Click" Tag="{Binding}" Opacity="0"/>
+                   Icon="{ui:SymbolIcon Symbol=MoreHorizontal20}" Padding="2" Margin="0,2,0,0"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                   PreviewMouseLeftButtonDown="MoreOptions_PreviewMouseDown" Tag="{Binding}" Opacity="0"/>
                         </Grid>
                     </Border>
 
@@ -282,7 +284,26 @@
 
         <Rectangle Grid.Row="3" Fill="#00D5E1" Height="4" RadiusX="2" RadiusY="2" Width="60" VerticalAlignment="Bottom" HorizontalAlignment="Center"/>
 
-        <ui:SnackbarPresenter x:Name="RootSnackbar" Grid.RowSpan="4" VerticalAlignment="Bottom" Margin="0,0,0,20"/>
+        <!-- Custom Dynamic Toast Notification -->
+        <!-- Custom Dynamic Toast Notification -->
+        <Border x:Name="CustomToastPopup" Grid.RowSpan="4" VerticalAlignment="Bottom" Margin="0,0,0,20"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+                BorderThickness="1" CornerRadius="8" Padding="16,12"
+                Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Center">
+
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="ToastTransform" Y="20"/>
+            </Border.RenderTransform>
+
+            <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon Symbol="Checkmark24" Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" Margin="0,0,12,0"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Task Completed" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock x:Name="ToastTaskTitle" Text="Task title here" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,2,0,0"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
 
     </Grid>
 </ui:FluentWindow>

@@ -9,7 +9,9 @@
                  ResizeMode="CanResizeWithGrip"
                  WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True"
-                 Topmost="True">
+                 Topmost="True"
+                 Background="{DynamicResource ApplicationBackgroundBrush}"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}">
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>

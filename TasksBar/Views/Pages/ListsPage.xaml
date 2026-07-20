@@ -1,0 +1,52 @@
+﻿<Page x:Class="TasksBar.ListsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="Task Lists"
+      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}">
+    <!-- ^ THE FIX: Safely binds the text color to the Window's dark/light theme! -->
+
+    <Grid Margin="20,10,20,30" MaxWidth="800">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Task Lists" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,24" 
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+
+        <!-- Local List Creation -->
+        <StackPanel x:Name="CreateListPanel" Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
+            <ui:TextBox x:Name="NewListNameInput" PlaceholderText="New local list name..." Width="250" Margin="0,0,8,0" />
+            <ui:Button Content="Create" Icon="{ui:SymbolIcon Symbol=Add24}" Click="CreateList_Click" Appearance="Primary" />
+        </StackPanel>
+
+        <ListView x:Name="ListsListView" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <!-- THE FIX: ui:CardAction makes the ENTIRE box a clickable button -->
+                    <ui:CardAction Margin="0,0,0,8" Click="SelectList_Click" Tag="{Binding}" Padding="16">
+                        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Medium" VerticalAlignment="Center" />
+                    </ui:CardAction>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Margin" Value="0,0,0,4"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <ContentPresenter />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+    </Grid>
+</Page>

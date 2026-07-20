@@ -19,6 +19,12 @@ namespace TasksBar
 
         private void Setting_Changed(object sender, RoutedEventArgs e)
         {
+            // Inside Setting_Changed:
+            if (GoogleSyncToggle.IsChecked == true && !AppConfig.Settings.EnableGoogleSync ||
+                GoogleSyncToggle.IsChecked == false && AppConfig.Settings.EnableGoogleSync)
+            {
+                AppConfig.Settings.SelectedListId = "@default"; // Reset safely on swap
+            }
             if (!_isLoaded) return;
 
             AppConfig.Settings.EnableGoogleSync = GoogleSyncToggle.IsChecked == true;

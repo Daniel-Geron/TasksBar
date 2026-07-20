@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Linq;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -44,15 +45,13 @@ namespace TasksBar
         {
             if (sender is Wpf.Ui.Controls.Button btn && btn.Tag is StickyNoteModel note)
             {
-                // 1. Remove it from the local data manager and save the JSON
                 LocalDataManager.ActiveNotes.Remove(note);
                 LocalDataManager.SaveNotes();
 
-                // 2. Remove it from the UI list so it disappears visually
                 DisplayNotes.Remove(note);
 
-                // 3. IMPORTANT: If the window happens to be open right now, kill it!
-                foreach (var window in Application.Current.Windows.OfType<StickyNoteWindow>().ToList())
+                // THE FIX: Added .Cast<Window>() so the compiler doesn't panic
+                foreach (var window in Application.Current.Windows.Cast<Window>().OfType<StickyNoteWindow>().ToList())
                 {
                     if (window.GetModel() == note)
                     {

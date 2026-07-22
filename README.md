@@ -1,4 +1,3 @@
-
 # TasksBar
 
 
@@ -23,8 +22,12 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 
 <img width="1328" height="716" alt="Recording 2026-04-19 100340" src="https://github.com/user-attachments/assets/d18b1f45-82bd-49f6-b0df-eef0fae54156" />
 
+
 ---
 
+<img width="720" height="580" alt="Recording 2026-07-21 173136" src="https://github.com/user-attachments/assets/6a2963ce-a546-4cd4-af2e-434acd594704" />
+
+---
 ## 🚀 Getting Started
 
 ### Prerequisites

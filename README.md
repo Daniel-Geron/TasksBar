@@ -28,12 +28,10 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 <img width="720" height="580" alt="Recording 2026-07-21 173136" src="https://github.com/user-attachments/assets/6a2963ce-a546-4cd4-af2e-434acd594704" />
 
 ---
-## 🚀 Getting Started
-
-### Prerequisites
-To build and run this project, you will need:
-* Visual Studio 2022 (or newer)
-* [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
+## 🚀 Downloading
+1. Head over to [Releases](https://github.com/Daniel-Geron/TasksBar/releases/tag/1.1.2) and grab the latest release.
+2. Unzip it anywhere on your computer.
+3. launch `TasksBar.exe`.
 
 ### (Optional) Setting up Google Tasks API
 
@@ -55,6 +53,12 @@ To build and run this project, you will need:
 * **If using the compiled Release (downloaded the zip from Releases):** Drop `credentials.json` directly into the same folder where `TasksBar.exe` resides.
 
 
+
+## Building Project 
+### Prerequisites
+To build and run this project, you will need:
+* Visual Studio 2022 (or newer)
+* [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 
 
 Clone this repository to your local machine:

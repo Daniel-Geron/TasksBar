@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32; // THE FIX: Needed to access the Windows Registry
+using Microsoft.Win32; 
 
 namespace TasksBar
 {
@@ -36,7 +36,7 @@ namespace TasksBar
             AppConfig.Save();
         }
 
-        // --- NEW ADDITION: The Registry Helper ---
+        
         private void ApplyStartupSetting(bool enableStartup)
         {
             try

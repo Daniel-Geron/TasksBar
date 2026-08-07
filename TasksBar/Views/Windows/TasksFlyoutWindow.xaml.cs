@@ -45,7 +45,7 @@ namespace TasksBar
             InitializeComponent();
             SetupTrayIcon();
 
-            // 2. THE FIX: Now that the window exists, apply the theme to it!
+            // 2. Now that the window exists, apply the theme to it!
             if (AppConfig.Settings.AppTheme == 1)
                 Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
             else if (AppConfig.Settings.AppTheme == 2)
@@ -89,7 +89,7 @@ namespace TasksBar
                 }
                 else
                 {
-                    // THE NEW FIX: Load tasks from JSON if Google is off!
+                    // Load tasks from JSON if Google is off!
                     LoadLocalTasks();
                 }
             };
@@ -100,7 +100,7 @@ namespace TasksBar
         }
         public void LoadLocalTasks()
         {
-            // THE FIX: Pass the SelectedListId so it knows which JSON file to pull from!
+            // Pass the SelectedListId so it knows which JSON file to pull from!
             var localTasks = LocalDataManager.LoadTasks(AppConfig.Settings.SelectedListId);
             MyTasks.Clear();
 
@@ -116,7 +116,7 @@ namespace TasksBar
         {
             this.Hide(); // Hide the window
 
-            // THE FIX: Reset Topmost back to the user's actual saved preference!
+            // Reset Topmost back to the user's actual saved preference!
             this.Topmost = AppConfig.Settings.StayOnTop;
 
             // Force the memory flush immediately after hiding
@@ -144,7 +144,7 @@ namespace TasksBar
             _trayIcon.Text = "TasksBar";
             _trayIcon.Visible = true;
 
-            // THE FIX: Add a default menu instantly so right-click is never broken
+            // Add a default menu instantly so right-click is never broken
             var defaultMenu = new System.Windows.Forms.ContextMenuStrip();
             defaultMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
             _trayIcon.ContextMenuStrip = defaultMenu;
@@ -281,7 +281,7 @@ namespace TasksBar
             // Update the visual icon
             UpdatePinIcon();
 
-            // Note: If you have an AppConfig.Save() method, call it here!
+            
         }
 
         private void AddNote_Click(object sender, RoutedEventArgs e)
@@ -498,7 +498,7 @@ namespace TasksBar
 
             _isOpeningSettings = true;
 
-            // THE FIX: Track the Google Sync setting instead of the deleted Completed Tasks setting
+            //Track the Google Sync setting instead of the deleted Completed Tasks setting
             bool previousSyncState = AppConfig.Settings.EnableGoogleSync;
 
             _settingsWindow = new SettingsWindow();
@@ -593,7 +593,7 @@ namespace TasksBar
             // This perfectly translates to: "If unfocused AND not pinned"
             if (!AppConfig.Settings.StayOnTop && !_isOpeningSettings)
             {
-                // PRO TRICK: Temporarily force the window to stay on top so it doesn't 
+                // Temporarily force the window to stay on top so it doesn't 
                 // get hidden behind the app you just clicked while it tries to animate!
                 this.Topmost = true;
 
@@ -603,7 +603,7 @@ namespace TasksBar
         }
         private void Window_Activated(object sender, EventArgs e)
         {
-            // THE FIX: Windows 11 intentionally drops Acrylic when a window loses focus. 
+            // Windows 11 intentionally drops Acrylic when a window loses focus. 
             // Sometimes it "forgets" to redraw it when focus returns. 
             // Toggling to None and back instantly forces the DWM to redraw the blur!
 
@@ -717,7 +717,7 @@ namespace TasksBar
                 EasingFunction = cubicEaseIn
             };
 
-            // THE MAGIC TRICK: Wait for the fade out to finish, THEN completely hide and flush the RAM
+            // Wait for the fade out to finish, THEN completely hide and flush the RAM
             fadeAnim.Completed += (s, args) =>
             {
                 HideAndFlushMemory();

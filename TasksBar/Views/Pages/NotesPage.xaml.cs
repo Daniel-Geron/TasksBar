@@ -50,7 +50,7 @@ namespace TasksBar
 
                 DisplayNotes.Remove(note);
 
-                // THE FIX: Added .Cast<Window>() so the compiler doesn't panic
+                // Added .Cast<Window>() so the compiler doesn't panic
                 foreach (var window in Application.Current.Windows.Cast<Window>().OfType<StickyNoteWindow>().ToList())
                 {
                     if (window.GetModel() == note)

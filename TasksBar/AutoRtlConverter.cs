@@ -12,7 +12,7 @@ namespace TasksBar
         {
             if (value is string text && !string.IsNullOrWhiteSpace(text))
             {
-                // THE FIX: Check if ANY character in the entire string is in the Hebrew/Arabic Unicode block
+                // Check if ANY character in the entire string is in the Hebrew/Arabic Unicode block
                 bool containsHebrew = text.Any(c => c >= 0x0590 && c <= 0x06FF);
 
                 if (containsHebrew)

@@ -76,7 +76,7 @@ namespace TasksBar
 
         private void SelectList_Click(object sender, RoutedEventArgs e)
         {
-            // THE FIX: Look for CardAction instead of Button
+            
             if (sender is Wpf.Ui.Controls.CardAction card && card.Tag is ListDisplayModel selectedList)
             {
                 AppConfig.Settings.SelectedListId = selectedList.Id;

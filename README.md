@@ -51,6 +51,11 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 13. Rename the downloaded file to exactly `credentials.json`.
 * **If building from source:** Drag and drop `credentials.json` into the root project directory in Visual Studio (make sure its properties are set to *Copy if newer*).
 * **If using the compiled Release (downloaded the zip from Releases):** Drop `credentials.json` directly into the same folder where `TasksBar.exe` resides.
+14. Launch the app and in the settings turn on `Google Tasks Sync`.
+15. A browser window will popup (if not just click `Log in to Google`) prompting you to log in. **!Make sure to log in with the same account(s) you added in step 8!**
+16. If done correctly, a success message will pop up and all of your Google Tasks lists, tasks and details will be synced with TasksBar.
+
+Note: For security reasons, every once in a while Google will prompt you to log in again.
 
 
 

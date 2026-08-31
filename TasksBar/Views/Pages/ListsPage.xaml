@@ -22,11 +22,13 @@
             <ui:Button Content="Create" Icon="{ui:SymbolIcon Symbol=Add24}" Click="CreateList_Click" Appearance="Primary" />
         </StackPanel>
 
+        <!-- THE FIX: Set MaxWidth="550" and HorizontalAlignment="Left" to make them less wide -->
+        <!-- Removed MaxWidth/HorizontalAlignment so the scrollbar returns to the right edge -->
         <ListView x:Name="ListsListView" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <!-- THE FIX: ui:CardAction makes the ENTIRE box a clickable button -->
-                    <ui:CardAction Margin="0,0,0,8" Click="SelectList_Click" Tag="{Binding}" Padding="16">
+                    <!-- Increased the right margin to 24 to keep the card wide, but comfortably clear of the scrollbar -->
+                    <ui:CardAction Margin="0,0,24,8" Click="SelectList_Click" Tag="{Binding}" Padding="16">
                         <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Medium" VerticalAlignment="Center" />
                     </ui:CardAction>
                 </DataTemplate>

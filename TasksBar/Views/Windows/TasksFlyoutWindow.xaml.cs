@@ -216,50 +216,49 @@ namespace TasksBar
         {
             if (_googleTasksService == null) return;
 
-            // --- THE CLEANUP FIX ---
-            // Before clearing the list, safely unhook the events so the RAM is freed!
             foreach (var oldTask in MyTasks)
             {
-                oldTask.PropertyChanged -= OnTaskPropertyChanged; // Mathematically breaks the memory link
-
+                oldTask.PropertyChanged -= OnTaskPropertyChanged;
                 oldTask.Title = null;
                 oldTask.Details = null;
             }
 
             MyTasks.Clear();
-      
-
 
             var request = _googleTasksService.Tasks.List(AppConfig.Settings.SelectedListId);
             request.ShowHidden = false;
             request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
+            request.MaxResults = 100; // Force Google to send the maximum batch size
 
-
-            var response = await request.ExecuteAsync();
-
-            if (response.Items != null)
+            // Loop to fetch all pages if the user has hundreds of tasks
+            do
             {
-                foreach (var gTask in response.Items)
+                var response = await request.ExecuteAsync();
+
+                if (response.Items != null)
                 {
-                    if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
-                    if (!AppConfig.Settings.ShowCompletedTasks && gTask.Status == "completed") continue;
-
-
-                    var taskItem = new TaskItem
+                    foreach (var gTask in response.Items)
                     {
-                        Id = gTask.Id,
-                        Title = gTask.Title,
-                        Details = gTask.Notes ?? "",
-                        IsCompleted = gTask.Status == "completed"
-                    };
+                        if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
+                        if (!AppConfig.Settings.ShowCompletedTasks && gTask.Status == "completed") continue;
 
-                    // --- THE ATTACHMENT FIX ---
-                    // Hook up the new named method instead of the lambda
-                    taskItem.PropertyChanged += OnTaskPropertyChanged;
+                        var taskItem = new TaskItem
+                        {
+                            Id = gTask.Id,
+                            Title = gTask.Title,
+                            Details = gTask.Notes ?? "",
+                            IsCompleted = gTask.Status == "completed"
+                        };
 
-                    MyTasks.Add(taskItem);
+                        taskItem.PropertyChanged += OnTaskPropertyChanged;
+                        MyTasks.Add(taskItem);
+                    }
                 }
-            }
+
+                // Grab the next page token. If it's null, the loop ends.
+                request.PageToken = response.NextPageToken;
+
+            } while (!string.IsNullOrEmpty(request.PageToken));
         }
         private void UpdatePinIcon()
         {

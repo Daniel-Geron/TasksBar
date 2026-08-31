@@ -88,27 +88,22 @@ namespace TasksBar
             // Apply Backdrop instantly
 
             if (oldTheme != AppConfig.Settings.AppTheme || oldAcrylic != AppConfig.Settings.UseAcrylic)
-
             {
-
                 var newBackdrop = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
-
                 foreach (Window window in Application.Current.Windows)
-
                 {
-
                     if (window is FluentWindow fluentWindow)
-
                     {
-
                         fluentWindow.WindowBackdropType = WindowBackdropType.None;
-
                         fluentWindow.WindowBackdropType = newBackdrop;
-
                     }
 
+                    // THE NEW FIX: Force all open sticky notes to instantly repaint their drawings!
+                    if (window is StickyNoteWindow stickyNote)
+                    {
+                        stickyNote.UpdateInkColor();
+                    }
                 }
-
             }
 
 

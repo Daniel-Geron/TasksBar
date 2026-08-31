@@ -26,28 +26,79 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
-            <ui:Button Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Dismiss20}" Click="CloseButton_Click" Padding="4" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+
+            <StackPanel.Resources>
+                <!-- Custom Style to handle hover and selected states for the toolbar icons -->
+                <Style TargetType="ToggleButton">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Margin" Value="0,0,4,0"/>
+                    <Setter Property="Padding" Value="6"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="BgBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <!-- Subtle background shift on Hover -->
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+                                    </Trigger>
+                                    <!-- Highlights the background and colors the icon on Selection -->
+                        
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}"/>
+                                        <Setter Property="Foreground" Value="#00D5E1"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </StackPanel.Resources>
+
+            <ToggleButton x:Name="TextModeBtn" IsChecked="True" Click="ModeButton_Click" ToolTip="Type Text">
+                <!-- Binds to the parent ToggleButton so the Style triggers can dynamically change its color -->
+                <ui:SymbolIcon Symbol="Keyboard20" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+            </ToggleButton>
+
+            <ToggleButton x:Name="PenModeBtn" Click="ModeButton_Click" ToolTip="Draw Pencil">
+                <ui:SymbolIcon Symbol="InkingTool20" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+            </ToggleButton>
+
+            <ToggleButton x:Name="EraserModeBtn" Margin="0,0,8,0" Click="ModeButton_Click" ToolTip="Eraser">
+                <ui:SymbolIcon Symbol="Eraser20" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+            </ToggleButton>
+
+            <ui:Button Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Dismiss20}" Click="CloseButton_Click" Padding="6" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
         </StackPanel>
 
-        <ui:TextBox Grid.Row="1"
-                    x:Name="NoteTextBox"
-                    TextChanged="NoteTextBox_TextChanged"
-                    AcceptsReturn="True"
-                    TextWrapping="Wrap"
-                    VerticalContentAlignment="Top"
-                    ClearButtonEnabled="False"
-                    BorderThickness="0"
-                    Background="Transparent"
-                    FontSize="14"
-                    PlaceholderText="Write a note..."
-                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                    FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}">
-            <ui:TextBox.Resources>
-                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-                <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-                <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-            </ui:TextBox.Resources>
-        </ui:TextBox>
+        <Grid Grid.Row="1">
+            <ui:TextBox x:Name="NoteTextBox"
+                        TextChanged="NoteTextBox_TextChanged"
+                        AcceptsReturn="True"
+                        TextWrapping="Wrap"
+                        VerticalContentAlignment="Top"
+                        ClearButtonEnabled="False"
+                        BorderThickness="0"
+                        Background="Transparent"
+                        FontSize="14"
+                        PlaceholderText="Write a note..."
+                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                        FlowDirection="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource AutoRtlConverter}}">
+                <ui:TextBox.Resources>
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                </ui:TextBox.Resources>
+            </ui:TextBox>
+
+            <!-- Overlay Drawing Canvas -->
+            <InkCanvas x:Name="NoteInkCanvas" Background="Transparent" IsHitTestVisible="False" />
+        </Grid>
+
     </Grid>
 </ui:FluentWindow>

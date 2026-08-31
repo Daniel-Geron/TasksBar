@@ -11,6 +11,7 @@ namespace TasksBar
         public string Text { get; set; } = "";
         public double Left { get; set; } = 0;
         public double Top { get; set; } = 0;
+        public string InkData { get; set; } = "";
     }
 
     public class LocalTaskList

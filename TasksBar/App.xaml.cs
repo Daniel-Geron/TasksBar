@@ -28,29 +28,16 @@ namespace TasksBar
             .ConfigureAppConfiguration(c => { c.SetBasePath(Path.GetDirectoryName(AppContext.BaseDirectory)); })
             .ConfigureServices((context, services) =>
             {
+                // --- CORE WPF UI SERVICES (REQUIRED FOR ENGINE) ---
                 services.AddNavigationViewPageProvider();
-
                 services.AddHostedService<ApplicationHostService>();
-
-                // Theme manipulation
                 services.AddSingleton<IThemeService, ThemeService>();
-
-                // TaskBar manipulation
                 services.AddSingleton<ITaskBarService, TaskBarService>();
-
-                // Service containing navigation, same as INavigationWindow... but without window
                 services.AddSingleton<INavigationService, NavigationService>();
 
-                // Main window with navigation
+                // --- YOUR APP WINDOWS ---
                 services.AddSingleton<TasksFlyoutWindow>();
-                services.AddSingleton<MainWindowViewModel>();
 
-               
-                services.AddSingleton<DashboardViewModel>();
-                services.AddSingleton<DataPage>();
-                services.AddSingleton<DataViewModel>();
-                services.AddSingleton<SettingsPage>();
-                services.AddSingleton<SettingsViewModel>();
             }).Build();
 
         /// <summary>

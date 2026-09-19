@@ -112,14 +112,8 @@ namespace TasksBar
 
             _ = PopulateTrayMenu();
         }
-        private void HideAndFlushMemory()
+        private void FlushMemory()
         {
-            this.Hide(); // Hide the window
-
-            // Reset Topmost back to the user's actual saved preference!
-            this.Topmost = AppConfig.Settings.StayOnTop;
-
-            // Force the memory flush immediately after hiding
             try
             {
                 GC.Collect();
@@ -127,6 +121,13 @@ namespace TasksBar
                 SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
             }
             catch { }
+        }
+        private void HideAndFlushMemory()
+        {
+            this.Hide(); // Hide the window
+            this.Topmost = AppConfig.Settings.StayOnTop;
+
+            FlushMemory();
         }
         private async void OnTaskPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
@@ -561,7 +562,15 @@ namespace TasksBar
         }
         private void Window_StateChanged(object sender, EventArgs e)
         {
-            if (this.WindowState == WindowState.Normal) PlaySlideAnimation();
+            if (this.WindowState == WindowState.Normal)
+            {
+                PlaySlideAnimation();
+            }
+            else if (this.WindowState == WindowState.Minimized)
+            {
+                // Force memory flush immediately upon OS minimization
+                FlushMemory();
+            }
         }
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {

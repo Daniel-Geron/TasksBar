@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Ink;
@@ -10,6 +13,10 @@ namespace TasksBar
 {
     public partial class StickyNoteWindow : FluentWindow
     {
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetProcessWorkingSetSize(IntPtr process, int minimumWorkingSetSize, int maximumWorkingSetSize);
         private StickyNoteModel _model;
         public StickyNoteModel GetModel() => _model;
 
@@ -28,6 +35,7 @@ namespace TasksBar
             UpdateInkColor();
             // Auto-save whenever a line is drawn or erased
             NoteInkCanvas.Strokes.StrokesChanged += (s, e) => SaveInk();
+            this.StateChanged += Window_StateChanged;
         }
 
         // Constructor for creating BRAND NEW notes
@@ -44,8 +52,21 @@ namespace TasksBar
             LocalDataManager.SaveNotes();
             UpdateInkColor();
             NoteInkCanvas.Strokes.StrokesChanged += (s, e) => SaveInk();
+            this.StateChanged += Window_StateChanged;
         }
-
+        private void Window_StateChanged(object sender, EventArgs e)
+        {
+            if (this.WindowState == WindowState.Minimized)
+            {
+                try
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
+                }
+                catch { }
+            }
+        }
         private void ApplyThemeSettings()
         {
             if (AppConfig.Settings.AppTheme == 1)
@@ -155,7 +176,31 @@ namespace TasksBar
                 LocalDataManager.SaveNotes();
             }
         }
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
 
+            // 1. Find the main flyout window to check its status
+            var mainWindow = System.Windows.Application.Current.Windows.OfType<TasksFlyoutWindow>().FirstOrDefault();
+
+            // 2. Check if the main window is hidden in the system tray or minimized
+            bool isMainHidden = mainWindow == null || !mainWindow.IsVisible || mainWindow.WindowState == WindowState.Minimized;
+
+            // 3. Count how many sticky notes are currently open (excluding this one that is closing)
+            int openNotes = System.Windows.Application.Current.Windows.OfType<StickyNoteWindow>().Count(w => w != this);
+
+            // 4. If the main app is hidden and no other notes are left, flush the memory
+            if (isMainHidden && openNotes == 0)
+            {
+                try
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, -1, -1);
+                }
+                catch { }
+            }
+        }
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             this.Close();

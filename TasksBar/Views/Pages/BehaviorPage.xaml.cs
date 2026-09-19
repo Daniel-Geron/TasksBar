@@ -49,7 +49,27 @@ namespace TasksBar
             AppConfig.Save();
         }
 
+        private void Hyperlink_RequestNavigate(object sender,
+                                     System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            try
+            {
+                // Must use ProcessStartInfo with UseShellExecute set to true for URLs
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = e.Uri.AbsoluteUri,
+                    UseShellExecute = true
+                };
+                System.Diagnostics.Process.Start(psi);
 
+                // Mark the event as handled so WPF doesn't try to process it further
+                e.Handled = true;
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Could not open link: {ex.Message}");
+            }
+        }
         private void ApplyStartupSetting(bool enableStartup)
         {
             try

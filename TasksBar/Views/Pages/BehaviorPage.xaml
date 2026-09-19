@@ -35,6 +35,12 @@
                     <StackPanel Orientation="Vertical">
                         <TextBlock Text="Stream Deck Integration" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
                         <TextBlock Text="Run the local API server so the Stream Deck plugin can connect" FontSize="12" Opacity="0.5" />
+                        <TextBlock Text="(Requires Stream Deck plugin to be installed)" FontSize="12" Opacity="0.5" />
+                        <TextBlock>
+                         <Hyperlink RequestNavigate="Hyperlink_RequestNavigate"  
+                         NavigateUri="https://github.com/Daniel-Geron/TasksBar-Stream-Deck-Plugin/releases/">Get it here!</Hyperlink>
+                        </TextBlock>
+
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ui:ToggleSwitch x:Name="StreamDeckToggle" Click="Setting_Changed" />

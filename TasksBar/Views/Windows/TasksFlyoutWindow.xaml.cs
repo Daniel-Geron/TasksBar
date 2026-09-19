@@ -803,7 +803,7 @@ namespace TasksBar
                 _trayIcon.ContextMenuStrip = contextMenu;
             });
         }
-        private void OpenFlyoutFromTray()
+        public void OpenFlyoutFromTray()
         {
             Application.Current.Dispatcher.Invoke(() =>
             {

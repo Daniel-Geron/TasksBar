@@ -35,6 +35,8 @@ namespace TasksBar
 
         public string SelectedListId { get; set; } = "@default";
 
+        public bool EnableStreamDeck { get; set; } = false;
+
     }
 
 

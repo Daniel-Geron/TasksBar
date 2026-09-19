@@ -21,6 +21,9 @@ namespace TasksBar.Services
 
         private INavigationWindow _navigationWindow;
 
+        // Add this line right here:
+        private StreamDeckServer _sdServer;
+
         public ApplicationHostService(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
@@ -32,16 +35,25 @@ namespace TasksBar.Services
         /// <param name="cancellationToken">Indicates that the start process has been aborted.</param>
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+            _sdServer = new StreamDeckServer();
+
+            // Only start the server on boot if the user has it enabled
+            if (AppConfig.Settings.EnableStreamDeck)
+            {
+                _sdServer.Start();
+            }
+
             await HandleActivationAsync();
         }
-
         /// <summary>
         /// Triggered when the application host is performing a graceful shutdown.
         /// </summary>
         /// <param name="cancellationToken">Indicates that the shutdown process should no longer be graceful.</param>
         public async Task StopAsync(CancellationToken cancellationToken)
         {
+            _sdServer?.Stop();
             await Task.CompletedTask;
+
         }
 
         /// <summary>

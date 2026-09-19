@@ -21,7 +21,7 @@
                 </StackPanel>
             </ui:CardControl>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Rocket24}" Margin="0,0,0,24">
+            <ui:CardControl Icon="{ui:SymbolIcon Rocket24}" Margin="0,0,0,4">
                 <ui:CardControl.Header>
                     <StackPanel Orientation="Vertical">
                         <TextBlock Text="Launch on Startup" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
@@ -30,6 +30,16 @@
                 </ui:CardControl.Header>
                 <ui:ToggleSwitch x:Name="StartupToggle" Click="Setting_Changed" />
             </ui:CardControl>
+            <ui:CardControl Icon="{ui:SymbolIcon Server24}" Margin="0,0,0,4">
+                <ui:CardControl.Header>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Stream Deck Integration" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="Run the local API server so the Stream Deck plugin can connect" FontSize="12" Opacity="0.5" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:ToggleSwitch x:Name="StreamDeckToggle" Click="Setting_Changed" />
+            </ui:CardControl>
+
         </StackPanel>
     </ScrollViewer>
 </Page>

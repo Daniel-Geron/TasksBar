@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32; 
+using Microsoft.Win32;
 
 namespace TasksBar
 {
@@ -14,29 +14,42 @@ namespace TasksBar
             InitializeComponent();
             GoogleSyncToggle.IsChecked = AppConfig.Settings.EnableGoogleSync;
             StartupToggle.IsChecked = AppConfig.Settings.LaunchOnStartup;
+
+            // 1. Load the visual state of the toggle
+            StreamDeckToggle.IsChecked = AppConfig.Settings.EnableStreamDeck;
+
             _isLoaded = true;
         }
 
         private void Setting_Changed(object sender, RoutedEventArgs e)
         {
-            // Inside Setting_Changed:
             if (GoogleSyncToggle.IsChecked == true && !AppConfig.Settings.EnableGoogleSync ||
                 GoogleSyncToggle.IsChecked == false && AppConfig.Settings.EnableGoogleSync)
             {
-                AppConfig.Settings.SelectedListId = "@default"; // Reset safely on swap
+                AppConfig.Settings.SelectedListId = "@default";
             }
             if (!_isLoaded) return;
 
             AppConfig.Settings.EnableGoogleSync = GoogleSyncToggle.IsChecked == true;
             AppConfig.Settings.LaunchOnStartup = StartupToggle.IsChecked == true;
 
-            // THE FIX: Actually tell Windows to enable/disable startup!
-            ApplyStartupSetting(AppConfig.Settings.LaunchOnStartup);
+            // 2. Instantly start or stop the background server when clicked
+            bool enableStreamDeck = StreamDeckToggle.IsChecked == true;
+            if (AppConfig.Settings.EnableStreamDeck != enableStreamDeck)
+            {
+                AppConfig.Settings.EnableStreamDeck = enableStreamDeck;
 
+                if (enableStreamDeck)
+                    Services.StreamDeckServer.Instance?.Start();
+                else
+                    Services.StreamDeckServer.Instance?.Stop();
+            }
+
+            ApplyStartupSetting(AppConfig.Settings.LaunchOnStartup);
             AppConfig.Save();
         }
 
-        
+
         private void ApplyStartupSetting(bool enableStartup)
         {
             try

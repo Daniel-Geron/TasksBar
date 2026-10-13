@@ -17,7 +17,70 @@ namespace TasksBar
         [DllImport("kernel32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetProcessWorkingSetSize(IntPtr process, int minimumWorkingSetSize, int maximumWorkingSetSize);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        private delegate IntPtr SubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr refData);
+
+        [DllImport("comctl32.dll")]
+        private static extern bool SetWindowSubclass(IntPtr hWnd, SubclassProc proc, UIntPtr id, UIntPtr refData);
+
+        [DllImport("comctl32.dll")]
+        private static extern bool RemoveWindowSubclass(IntPtr hWnd, SubclassProc proc, UIntPtr id);
+
+        [DllImport("comctl32.dll")]
+        private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        private const uint WM_NCACTIVATE = 0x0086;
+
+        // Kept in a static field so the GC never collects the delegate native code is calling
+        private static readonly SubclassProc _keepBackdropProc = KeepBackdropWhenInactive;
+        private IntPtr _hwnd;
+
         private StickyNoteModel _model;
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            // Windows 11 only draws Mica/Acrylic on the active window and shows a flat
+            // fallback color on inactive ones. A native subclass is used because it sees
+            // WM_NCACTIVATE before WPF's window chrome, which would otherwise pass the real state on.
+            _hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            SetWindowSubclass(_hwnd, _keepBackdropProc, UIntPtr.Zero, UIntPtr.Zero);
+
+            Wpf.Ui.Appearance.ApplicationThemeManager.Changed += OnAppThemeChanged;
+        }
+
+        private void OnAppThemeChanged(Wpf.Ui.Appearance.ApplicationTheme theme, System.Windows.Media.Color accent)
+        {
+            // WPF UI makes the window background transparent with SetCurrentValue, which a
+            // DynamicResource re-evaluation silently undoes. Every new note re-applies the theme,
+            // so older notes got their opaque background back and lost Mica/Acrylic.
+            // Re-apply once the resource refresh has finished.
+            Dispatcher.BeginInvoke(new Action(ReapplyBackdrop), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private void ReapplyBackdrop()
+        {
+            var expected = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
+            this.WindowBackdropType = WindowBackdropType.None;
+            this.WindowBackdropType = expected;
+            UpdateInkColor();
+        }
+
+        private static IntPtr KeepBackdropWhenInactive(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr refData)
+        {
+            if (msg == WM_NCACTIVATE)
+            {
+                // Always tell Windows the frame is active so DWM keeps the backdrop on every note.
+                // Real focus and WPF's Activated/Deactivated come from WM_ACTIVATE and are unaffected.
+                // lParam -1 skips repainting the hidden native frame.
+                return DefWindowProc(hWnd, msg, new IntPtr(1), new IntPtr(-1));
+            }
+            return DefSubclassProc(hWnd, msg, wParam, lParam);
+        }
         public StickyNoteModel GetModel() => _model;
 
         // Constructor for loading EXISTING notes
@@ -29,12 +92,14 @@ namespace TasksBar
 
             this.Left = _model.Left;
             this.Top = _model.Top;
+            _suppressSync = true;
             NoteTextBox.Text = _model.Text;
+            _suppressSync = false;
 
             LoadInk();
             UpdateInkColor();
             // Auto-save whenever a line is drawn or erased
-            NoteInkCanvas.Strokes.StrokesChanged += (s, e) => SaveInk();
+            NoteInkCanvas.Strokes.StrokesChanged += OnStrokesChanged;
             this.StateChanged += Window_StateChanged;
         }
 
@@ -49,9 +114,9 @@ namespace TasksBar
             this.Top = startTop;
 
             LocalDataManager.ActiveNotes.Add(_model);
-            LocalDataManager.SaveNotes();
+            Services.StickyNoteSync.MarkDirty(_model);
             UpdateInkColor();
-            NoteInkCanvas.Strokes.StrokesChanged += (s, e) => SaveInk();
+            NoteInkCanvas.Strokes.StrokesChanged += OnStrokesChanged;
             this.StateChanged += Window_StateChanged;
         }
         private void Window_StateChanged(object sender, EventArgs e)
@@ -114,15 +179,39 @@ namespace TasksBar
             }
         }
 
+        private bool _suppressSync;
+
+        private void OnStrokesChanged(object? sender, StrokeCollectionChangedEventArgs e) => SaveInk();
+
         private void SaveInk()
         {
-            if (_model == null) return;
+            if (_model == null || _suppressSync) return;
 
             using (MemoryStream ms = new MemoryStream())
             {
                 NoteInkCanvas.Strokes.Save(ms);
                 _model.InkData = Convert.ToBase64String(ms.ToArray());
-                LocalDataManager.SaveNotes();
+                Services.StickyNoteSync.MarkDirty(_model);
+            }
+        }
+
+        /// <summary>Shows content that sync pulled from another device, without re-uploading it.</summary>
+        public void ReloadFromModel()
+        {
+            _suppressSync = true;
+            try
+            {
+                if (NoteTextBox.Text != _model.Text) NoteTextBox.Text = _model.Text;
+
+                NoteInkCanvas.Strokes.StrokesChanged -= OnStrokesChanged;
+                NoteInkCanvas.Strokes = new StrokeCollection();
+                LoadInk();
+                UpdateInkColor();
+                NoteInkCanvas.Strokes.StrokesChanged += OnStrokesChanged;
+            }
+            finally
+            {
+                _suppressSync = false;
             }
         }
 
@@ -170,14 +259,17 @@ namespace TasksBar
 
         private void NoteTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (_model != null)
+            if (_model != null && !_suppressSync)
             {
                 _model.Text = NoteTextBox.Text;
-                LocalDataManager.SaveNotes();
+                Services.StickyNoteSync.MarkDirty(_model);
             }
         }
         protected override void OnClosed(EventArgs e)
         {
+            // Static event: unsubscribe so closed notes can be garbage collected
+            Wpf.Ui.Appearance.ApplicationThemeManager.Changed -= OnAppThemeChanged;
+            if (_hwnd != IntPtr.Zero) RemoveWindowSubclass(_hwnd, _keepBackdropProc, UIntPtr.Zero);
             base.OnClosed(e);
 
             // 1. Find the main flyout window to check its status

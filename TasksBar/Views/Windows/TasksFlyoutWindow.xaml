@@ -85,7 +85,7 @@
 
                             <!-- The Completion Toggle Button -->
                             <ToggleButton Grid.Column="0" IsChecked="{Binding IsCompleted}" VerticalAlignment="Top" Margin="0,3,10,0"
-                      PreviewMouseLeftButtonDown="CompleteTask_PreviewMouseDown" Tag="{Binding}" Background="Transparent" BorderThickness="0">
+                      PreviewMouseLeftButtonDown="CompleteTask_PreviewMouseDown" MouseEnter="CompleteTask_MouseEnter" Tag="{Binding}" Background="Transparent" BorderThickness="0">
                                 <ToggleButton.Style>
                                     <Style TargetType="ToggleButton">
                                         <Setter Property="Template">

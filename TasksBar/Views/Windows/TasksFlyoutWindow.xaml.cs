@@ -127,6 +127,7 @@ namespace TasksBar
             this.Hide(); // Hide the window
             this.Topmost = AppConfig.Settings.StayOnTop;
 
+            Services.TaskSoundPlayer.Release();
             FlushMemory();
         }
         private async void OnTaskPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -207,6 +208,7 @@ namespace TasksBar
 
                 await SyncTasksFromGoogle();
                 await PopulateTrayMenu();
+                await Services.StickyNoteSync.SyncAsync();
             }
             catch (Exception ex)
             {
@@ -395,12 +397,19 @@ namespace TasksBar
             }
         }
 
+        private void CompleteTask_MouseEnter(object sender, MouseEventArgs e)
+        {
+            Services.TaskSoundPlayer.PlayHover();
+        }
+
         private async void CompleteTask_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is System.Windows.Controls.Primitives.ToggleButton btn && btn.Tag is TaskItem task)
             {
                 // 1. Catch the click INSTANTLY before the layout has a chance to shift
                 e.Handled = true;
+
+                Services.TaskSoundPlayer.PlayClick();
 
                 // 2. Safely force the previous text box to save its changes
                 Keyboard.ClearFocus();
@@ -526,6 +535,7 @@ namespace TasksBar
                     {
                         // Otherwise, just refresh the list!
                         await SyncTasksFromGoogle();
+                        await Services.StickyNoteSync.SyncAsync();
                     }
                 }
                 else if (!AppConfig.Settings.EnableGoogleSync && previousSyncState)
@@ -763,6 +773,7 @@ namespace TasksBar
                     {
                         foreach (var lst in googleLists)
                         {
+                            if (Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                             var item = new System.Windows.Forms.ToolStripMenuItem(lst.Title);
                             item.Checked = (lst.Id == AppConfig.Settings.SelectedListId);
                             item.Click += async (s, e) =>

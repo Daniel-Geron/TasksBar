@@ -47,6 +47,7 @@ namespace TasksBar
             {
                 LocalDataManager.ActiveNotes.Remove(note);
                 LocalDataManager.SaveNotes();
+                _ = Services.StickyNoteSync.DeleteNoteAsync(note);
 
                 DisplayNotes.Remove(note);
 

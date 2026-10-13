@@ -18,7 +18,81 @@ namespace TasksBar
             // 1. Load the visual state of the toggle
             StreamDeckToggle.IsChecked = AppConfig.Settings.EnableStreamDeck;
 
+            NoteSyncToggle.IsChecked = AppConfig.Settings.SyncStickyNotes;
+            HoverSoundToggle.IsChecked = AppConfig.Settings.EnableHoverSound;
+            ClickSoundToggle.IsChecked = AppConfig.Settings.EnableClickSound;
+            UpdateSoundFileLabels();
+
             _isLoaded = true;
+        }
+
+        private void UpdateSoundFileLabels()
+        {
+            HoverSoundFileText.Text = DescribeSoundFile(AppConfig.Settings.HoverSoundPath);
+            HoverSoundFileText.ToolTip = AppConfig.Settings.HoverSoundPath;
+            ClickSoundFileText.Text = DescribeSoundFile(AppConfig.Settings.ClickSoundPath);
+            ClickSoundFileText.ToolTip = AppConfig.Settings.ClickSoundPath;
+        }
+
+        private static string DescribeSoundFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return "No file selected";
+            string name = System.IO.Path.GetFileName(path);
+            return System.IO.File.Exists(path) ? name : $"{name} (file not found)";
+        }
+
+        private static string? PickMp3File(string currentPath)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Choose a sound",
+                Filter = "MP3 files (*.mp3)|*.mp3",
+                CheckFileExists = true
+            };
+
+            if (!string.IsNullOrWhiteSpace(currentPath))
+            {
+                string? folder = System.IO.Path.GetDirectoryName(currentPath);
+                if (folder != null && System.IO.Directory.Exists(folder))
+                    dialog.InitialDirectory = folder;
+            }
+
+            return dialog.ShowDialog() == true ? dialog.FileName : null;
+        }
+
+        private void BrowseHoverSound_Click(object sender, RoutedEventArgs e)
+        {
+            string? file = PickMp3File(AppConfig.Settings.HoverSoundPath);
+            if (file == null) return;
+
+            AppConfig.Settings.HoverSoundPath = file;
+            // Picking a file implies the user wants to hear it
+            AppConfig.Settings.EnableHoverSound = true;
+            HoverSoundToggle.IsChecked = true;
+            UpdateSoundFileLabels();
+            AppConfig.Save();
+        }
+
+        private void BrowseClickSound_Click(object sender, RoutedEventArgs e)
+        {
+            string? file = PickMp3File(AppConfig.Settings.ClickSoundPath);
+            if (file == null) return;
+
+            AppConfig.Settings.ClickSoundPath = file;
+            AppConfig.Settings.EnableClickSound = true;
+            ClickSoundToggle.IsChecked = true;
+            UpdateSoundFileLabels();
+            AppConfig.Save();
+        }
+
+        private void PreviewHoverSound_Click(object sender, RoutedEventArgs e)
+        {
+            Services.TaskSoundPlayer.Preview(AppConfig.Settings.HoverSoundPath);
+        }
+
+        private void PreviewClickSound_Click(object sender, RoutedEventArgs e)
+        {
+            Services.TaskSoundPlayer.Preview(AppConfig.Settings.ClickSoundPath);
         }
 
         private void Setting_Changed(object sender, RoutedEventArgs e)
@@ -30,8 +104,13 @@ namespace TasksBar
             }
             if (!_isLoaded) return;
 
+            bool wasNoteSync = Services.StickyNoteSync.IsEnabled;
+
             AppConfig.Settings.EnableGoogleSync = GoogleSyncToggle.IsChecked == true;
             AppConfig.Settings.LaunchOnStartup = StartupToggle.IsChecked == true;
+            AppConfig.Settings.SyncStickyNotes = NoteSyncToggle.IsChecked == true;
+            AppConfig.Settings.EnableHoverSound = HoverSoundToggle.IsChecked == true;
+            AppConfig.Settings.EnableClickSound = ClickSoundToggle.IsChecked == true;
 
             // 2. Instantly start or stop the background server when clicked
             bool enableStreamDeck = StreamDeckToggle.IsChecked == true;
@@ -47,6 +126,10 @@ namespace TasksBar
 
             ApplyStartupSetting(AppConfig.Settings.LaunchOnStartup);
             AppConfig.Save();
+
+            // Upload existing notes right away when note sync is switched on
+            if (!wasNoteSync && Services.StickyNoteSync.IsEnabled)
+                _ = Services.StickyNoteSync.SyncAsync();
         }
 
         private void Hyperlink_RequestNavigate(object sender,

@@ -89,6 +89,7 @@ namespace TasksBar.Services
                             var gLists = service.Tasklists.List().Execute();
                             foreach (var lst in gLists.Items)
                             {
+                                if (StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                                 lists.Add(new { id = lst.Id, title = lst.Title });
                             }
                         }

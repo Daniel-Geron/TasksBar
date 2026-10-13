@@ -37,6 +37,17 @@ namespace TasksBar
 
         public bool EnableStreamDeck { get; set; } = false;
 
+        // Optional sounds for the task completion circle
+        public bool EnableHoverSound { get; set; } = false;
+        public string HoverSoundPath { get; set; } = "";
+        public bool EnableClickSound { get; set; } = false;
+        public string ClickSoundPath { get; set; } = "";
+
+        // Sticky notes mirrored to a hidden Google Tasks list (only while Google sync is on)
+        public bool SyncStickyNotes { get; set; } = true;
+        public string StickyNotesListId { get; set; } = "";
+        public System.Collections.Generic.List<string> PendingNoteDeletes { get; set; } = new System.Collections.Generic.List<string>();
+
     }
 
 

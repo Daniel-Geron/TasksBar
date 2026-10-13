@@ -39,6 +39,7 @@ namespace TasksBar
                         var lists = await service.Tasklists.List().ExecuteAsync();
                         foreach (var lst in lists.Items)
                         {
+                            if (Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                             DisplayLists.Add(new ListDisplayModel { Id = lst.Id, Title = lst.Title });
                         }
                     }

@@ -21,6 +21,17 @@
                 </StackPanel>
             </ui:CardControl>
 
+            <ui:CardControl Icon="{ui:SymbolIcon Note24}" Margin="0,0,0,4">
+                <ui:CardControl.Header>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Sync Sticky Notes" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="Back up notes to a hidden Google Tasks list" FontSize="12" Opacity="0.5" />
+                        <TextBlock Text="(Requires Google Tasks Sync)" FontSize="12" Opacity="0.5" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:ToggleSwitch x:Name="NoteSyncToggle" Click="Setting_Changed" />
+            </ui:CardControl>
+
             <ui:CardControl Icon="{ui:SymbolIcon Rocket24}" Margin="0,0,0,4">
                 <ui:CardControl.Header>
                     <StackPanel Orientation="Vertical">
@@ -44,6 +55,36 @@
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ui:ToggleSwitch x:Name="StreamDeckToggle" Click="Setting_Changed" />
+            </ui:CardControl>
+
+            <ui:CardControl Icon="{ui:SymbolIcon Speaker224}" Margin="0,0,0,4">
+                <ui:CardControl.Header>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Hover Sound" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="Plays when hovering a task's check circle" FontSize="12" Opacity="0.5" />
+                        <TextBlock x:Name="HoverSoundFileText" FontSize="12" Opacity="0.5" TextTrimming="CharacterEllipsis" MaxWidth="320" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <StackPanel Orientation="Horizontal">
+                    <ui:Button Icon="{ui:SymbolIcon Play24}" ToolTip="Preview" Margin="0,0,8,0" Click="PreviewHoverSound_Click" />
+                    <ui:Button Content="Choose MP3" Icon="{ui:SymbolIcon FolderOpen24}" Margin="0,0,12,0" Click="BrowseHoverSound_Click" />
+                    <ui:ToggleSwitch x:Name="HoverSoundToggle" Click="Setting_Changed" />
+                </StackPanel>
+            </ui:CardControl>
+
+            <ui:CardControl Icon="{ui:SymbolIcon Speaker224}" Margin="0,0,0,4">
+                <ui:CardControl.Header>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Click Sound" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="Plays when clicking a task's check circle" FontSize="12" Opacity="0.5" />
+                        <TextBlock x:Name="ClickSoundFileText" FontSize="12" Opacity="0.5" TextTrimming="CharacterEllipsis" MaxWidth="320" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <StackPanel Orientation="Horizontal">
+                    <ui:Button Icon="{ui:SymbolIcon Play24}" ToolTip="Preview" Margin="0,0,8,0" Click="PreviewClickSound_Click" />
+                    <ui:Button Content="Choose MP3" Icon="{ui:SymbolIcon FolderOpen24}" Margin="0,0,12,0" Click="BrowseClickSound_Click" />
+                    <ui:ToggleSwitch x:Name="ClickSoundToggle" Click="Setting_Changed" />
+                </StackPanel>
             </ui:CardControl>
 
         </StackPanel>

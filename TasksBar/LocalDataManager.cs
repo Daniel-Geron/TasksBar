@@ -12,6 +12,12 @@ namespace TasksBar
         public double Left { get; set; } = 0;
         public double Top { get; set; } = 0;
         public string InkData { get; set; } = "";
+
+        // Google Tasks sync state (see Services/StickyNoteSync.cs). Position stays per-device.
+        public string? GoogleTaskId { get; set; }
+        public System.Collections.Generic.List<string> PartTaskIds { get; set; } = new System.Collections.Generic.List<string>();
+        public string? RemoteUpdated { get; set; }
+        public bool IsDirty { get; set; }
     }
 
     public class LocalTaskList

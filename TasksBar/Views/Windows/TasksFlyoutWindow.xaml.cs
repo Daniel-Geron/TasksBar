@@ -215,18 +215,101 @@ namespace TasksBar
                 System.Windows.MessageBox.Show($"Failed to connect to Google: {ex.Message}");
             }
         }
+        private bool _isSyncingTasks = false;
+        private bool _syncRequested = false;
+        private bool _isHandlingExpiredSignIn = false;
+
+        // Never throws: a failed refresh keeps the tasks already on screen instead of crashing the app
         public async Task SyncTasksFromGoogle()
         {
             if (_googleTasksService == null) return;
 
-            foreach (var oldTask in MyTasks)
+            // Two refreshes running at once would interleave their results, so queue one more pass instead
+            if (_isSyncingTasks)
             {
-                oldTask.PropertyChanged -= OnTaskPropertyChanged;
-                oldTask.Title = null;
-                oldTask.Details = null;
+                _syncRequested = true;
+                return;
             }
 
-            MyTasks.Clear();
+            _isSyncingTasks = true;
+            try
+            {
+                do
+                {
+                    _syncRequested = false;
+                    await DownloadAndShowTasks();
+                }
+                while (_syncRequested && _googleTasksService != null);
+            }
+            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound && AppConfig.Settings.SelectedListId != "@default")
+            {
+                // The selected list was deleted in Google Tasks, so fall back to the default list
+                AppConfig.Settings.SelectedListId = "@default";
+                AppConfig.Save();
+                _isSyncingTasks = false;
+                await SyncTasksFromGoogle();
+                await PopulateTrayMenu();
+            }
+            catch (Exception ex)
+            {
+                await HandleGoogleErrorAsync(ex);
+            }
+            finally
+            {
+                _isSyncingTasks = false;
+            }
+        }
+
+        private async Task HandleGoogleErrorAsync(Exception ex)
+        {
+            Debug.WriteLine($"Google Tasks request failed: {ex}");
+
+            if (!GoogleAuthManager.IsSignInExpired(ex) || _isHandlingExpiredSignIn) return;
+
+            _isHandlingExpiredSignIn = true;
+            try
+            {
+                await GoogleAuthManager.ClearSavedLoginAsync();
+                _googleTasksService = null;
+
+                var answer = System.Windows.MessageBox.Show(
+                    "Your Google sign-in has expired.\n\nSign in again now?",
+                    "TasksBar",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+
+                if (answer == System.Windows.MessageBoxResult.Yes)
+                {
+                    await InitializeGoogleTasksAsync();
+                }
+            }
+            finally
+            {
+                _isHandlingExpiredSignIn = false;
+            }
+        }
+
+        // Runs a single task-level Google call. A task that was already deleted or completed elsewhere
+        // just gets refreshed away, and any other failure is reported instead of crashing.
+        private async Task RunGoogleTaskRequest(Func<Task> request)
+        {
+            try
+            {
+                await request();
+            }
+            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound || ex.HttpStatusCode == System.Net.HttpStatusCode.Gone)
+            {
+                await SyncTasksFromGoogle();
+            }
+            catch (Exception ex)
+            {
+                await HandleGoogleErrorAsync(ex);
+            }
+        }
+
+        private async Task DownloadAndShowTasks()
+        {
+            var downloaded = new List<TaskItem>();
 
             var request = _googleTasksService.Tasks.List(AppConfig.Settings.SelectedListId);
             request.ShowHidden = false;
@@ -253,8 +336,7 @@ namespace TasksBar
                             IsCompleted = gTask.Status == "completed"
                         };
 
-                        taskItem.PropertyChanged += OnTaskPropertyChanged;
-                        MyTasks.Add(taskItem);
+                        downloaded.Add(taskItem);
                     }
                 }
 
@@ -262,6 +344,22 @@ namespace TasksBar
                 request.PageToken = response.NextPageToken;
 
             } while (!string.IsNullOrEmpty(request.PageToken));
+
+            // Only swap the visible list once every page has arrived
+            foreach (var oldTask in MyTasks)
+            {
+                oldTask.PropertyChanged -= OnTaskPropertyChanged;
+                oldTask.Title = null;
+                oldTask.Details = null;
+            }
+
+            MyTasks.Clear();
+
+            foreach (var taskItem in downloaded)
+            {
+                taskItem.PropertyChanged += OnTaskPropertyChanged;
+                MyTasks.Add(taskItem);
+            }
         }
         private void UpdatePinIcon()
         {
@@ -312,8 +410,11 @@ namespace TasksBar
                 if ((propertyName == nameof(TaskItem.Title) || propertyName == nameof(TaskItem.Details)) && !string.IsNullOrWhiteSpace(item.Title))
                 {
                     var newGTask = new Google.Apis.Tasks.v1.Data.Task { Title = item.Title, Notes = item.Details };
-                    var createdTask = await _googleTasksService.Tasks.Insert(newGTask, AppConfig.Settings.SelectedListId).ExecuteAsync();
-                    item.Id = createdTask.Id; // Save the real Google ID
+                    await RunGoogleTaskRequest(async () =>
+                    {
+                        var createdTask = await _googleTasksService.Tasks.Insert(newGTask, AppConfig.Settings.SelectedListId).ExecuteAsync();
+                        item.Id = createdTask.Id; // Save the real Google ID
+                    });
                 }
                 return;
             }
@@ -325,7 +426,7 @@ namespace TasksBar
                 // THE GHOST FIX: If they completely erased the title, delete the task!
                 if (string.IsNullOrWhiteSpace(item.Title))
                 {
-                    await _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync();
+                    await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync());
 
                     // Remove it from the UI thread safely
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -343,7 +444,7 @@ namespace TasksBar
                     Notes = item.Details,
                     Status = item.IsCompleted ? "completed" : "needsAction"
                 };
-                await _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync();
+                await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync());
             }
         }
 
@@ -445,7 +546,7 @@ namespace TasksBar
                             Notes = task.Details,
                             Status = "completed"
                         };
-                        await _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, task.Id).ExecuteAsync();
+                        await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, task.Id).ExecuteAsync());
                     }
                 }
             }
@@ -473,7 +574,7 @@ namespace TasksBar
                             {
                                 if (_googleTasksService != null && taskToDelete.Id != null)
                                 {
-                                    await _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, taskToDelete.Id).ExecuteAsync();
+                                    await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, taskToDelete.Id).ExecuteAsync());
                                 }
                             }
                             else
@@ -481,10 +582,6 @@ namespace TasksBar
                                 LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                             }
                             LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
-                            if (_googleTasksService != null && taskToDelete.Id != null)
-                            {
-                                await _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, taskToDelete.Id).ExecuteAsync();
-                            }
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }
                 };

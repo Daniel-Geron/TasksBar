@@ -36,6 +36,26 @@ namespace TasksBar
             return _credential;
         }
 
+        // Google answers "invalid_grant" when the saved refresh token has expired or been revoked.
+        // Retrying can never succeed; the only fix is signing in again.
+        public static bool IsSignInExpired(Exception ex)
+        {
+            for (var e = ex; e != null; e = e.InnerException)
+            {
+                if (e is Google.Apis.Auth.OAuth2.Responses.TokenResponseException tre && tre.Error?.Error == "invalid_grant")
+                    return true;
+            }
+            return false;
+        }
+
+        // Forgets the dead token so the next LoginAsync opens the browser for a fresh sign-in
+        public static async Task ClearSavedLoginAsync()
+        {
+            string tokenPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, "token.json");
+            await new FileDataStore(tokenPath, true).ClearAsync();
+            _credential = null;
+        }
+
         public static TasksService GetTasksService()
         {
             if (_credential == null) return null;

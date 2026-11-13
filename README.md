@@ -1,3 +1,4 @@
+
 # TasksBar
 
 
@@ -5,10 +6,10 @@
 ## The Tasks App That Is in Your Taskbar
 TasksBar is a lightweight, beautifully native Tasks widget for Windows. 
 
-<img width="678" height="588" alt="Screen Recording 2026-04-19 081935" src="https://github.com/user-attachments/assets/b9958050-89b4-4e25-a19f-a87642ba5241" />
-
+<img width="658" height="762" alt="Recording 2026-11-13 145500" src="https://github.com/user-attachments/assets/b0426097-40e1-409b-bd14-0c9b25d63d74" />
 
 Built with WPF and the modern Windows 11 design language, it lives quietly in your System Tray and pops up exactly when you need it. It offers full two-way synchronization with your Google account, allowing you to manage your daily tasks without ever opening a web browser.
+
 
 ## ✨ Features
 
@@ -20,12 +21,13 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 * **Auto-Startup:** Option to register directly with the Windows Registry to launch silently on boot.
 * **Satisfying UX:** Features custom-built, bouncy physics animations for task completion.
 
-<img width="1328" height="716" alt="Recording 2026-04-19 100340" src="https://github.com/user-attachments/assets/d18b1f45-82bd-49f6-b0df-eef0fae54156" />
+<img width="532" height="586" alt="Recording 2026-11-13 145924" src="https://github.com/user-attachments/assets/430899e1-23db-4c31-8cff-041e1cbd2f66" />
 
-
+ # * You can also put cool cat images in your notes
+ 
+<img width="776" height="860" alt="Recording 2026-11-13 150752" src="https://github.com/user-attachments/assets/d18c6a9b-bdc9-49c9-9a50-e28abc866c76" />
 ---
 
-<img width="720" height="580" alt="Recording 2026-07-21 173136" src="https://github.com/user-attachments/assets/6a2963ce-a546-4cd4-af2e-434acd594704" />
 
 ---
 ## 🚀 Downloading

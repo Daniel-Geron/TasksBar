@@ -19,6 +19,10 @@ namespace TasksBar
             DisplayNotes = new ObservableCollection<StickyNoteModel>(LocalDataManager.ActiveNotes);
             NotesListView.ItemsSource = DisplayNotes;
             UpdateOpenAllToggle();
+
+            // Notes can also be deleted from their own window while this page is open
+            Loaded += (s, e) => StickyNoteWindow.NoteDeleted += OnNoteDeleted;
+            Unloaded += (s, e) => StickyNoteWindow.NoteDeleted -= OnNoteDeleted;
         }
 
         // The top switch is on only when every note opens at startup
@@ -78,21 +82,14 @@ namespace TasksBar
         {
             if (sender is Wpf.Ui.Controls.Button btn && btn.Tag is StickyNoteModel note)
             {
-                LocalDataManager.ActiveNotes.Remove(note);
-                LocalDataManager.SaveNotes();
-                _ = Services.StickyNoteSync.DeleteNoteAsync(note);
-
-                DisplayNotes.Remove(note);
-
-                // Added .Cast<Window>() so the compiler doesn't panic
-                foreach (var window in Application.Current.Windows.Cast<Window>().OfType<StickyNoteWindow>().ToList())
-                {
-                    if (window.GetModel() == note)
-                    {
-                        window.Close();
-                    }
-                }
+                StickyNoteWindow.DeleteNote(note);
             }
+        }
+
+        private void OnNoteDeleted(StickyNoteModel note)
+        {
+            DisplayNotes.Remove(note);
+            UpdateOpenAllToggle();
         }
     }
 }

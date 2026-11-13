@@ -78,6 +78,7 @@ namespace TasksBar
                 PlaySlideAnimation();
 
                 LocalDataManager.LoadNotes();
+                Services.NoteImageStore.RemoveUnused(LocalDataManager.ActiveNotes);
                 foreach (var note in LocalDataManager.ActiveNotes.Where(n => n.OpenOnStartup))
                 {
                     new StickyNoteWindow(note).Show();

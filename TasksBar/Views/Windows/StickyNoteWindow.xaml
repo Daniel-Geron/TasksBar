@@ -25,6 +25,10 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <ui:Button x:Name="NoteMenuButton" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,0,8"
+                   Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=MoreHorizontal20}" Padding="6" ToolTip="More options"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" Click="NoteMenuButton_Click"/>
+
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
 
             <StackPanel.Resources>
@@ -95,6 +99,9 @@
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
                 </ui:TextBox.Resources>
             </ui:TextBox>
+
+            <!-- Pasted images float above the text and below the drawing (see NoteImageView) -->
+            <Canvas x:Name="ImageLayer" ClipToBounds="True" />
 
             <!-- Overlay Drawing Canvas -->
             <InkCanvas x:Name="NoteInkCanvas" Background="Transparent" IsHitTestVisible="False" />

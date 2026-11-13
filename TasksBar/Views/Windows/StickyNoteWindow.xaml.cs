@@ -98,9 +98,11 @@ namespace TasksBar
 
             LoadInk();
             UpdateInkColor();
+            LoadImages();
             // Auto-save whenever a line is drawn or erased
             NoteInkCanvas.Strokes.StrokesChanged += OnStrokesChanged;
             this.StateChanged += Window_StateChanged;
+            this.PreviewKeyDown += Window_PreviewKeyDown;
         }
 
         // Constructor for creating BRAND NEW notes
@@ -118,6 +120,91 @@ namespace TasksBar
             UpdateInkColor();
             NoteInkCanvas.Strokes.StrokesChanged += OnStrokesChanged;
             this.StateChanged += Window_StateChanged;
+            this.PreviewKeyDown += Window_PreviewKeyDown;
+        }
+
+        // --- PASTED IMAGES ---
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            bool isPaste = (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control) ||
+                           (e.Key == Key.Insert && Keyboard.Modifiers == ModifierKeys.Shift);
+            if (!isPaste) return;
+
+            // Text on the clipboard pastes into the note as usual
+            if (Clipboard.ContainsText()) return;
+
+            var bitmap = Services.NoteImageStore.GetClipboardImage();
+            if (bitmap == null) return;
+
+            e.Handled = true;
+            AddImage(bitmap);
+        }
+
+        private void AddImage(System.Windows.Media.Imaging.BitmapSource bitmap)
+        {
+            string id;
+            try
+            {
+                id = Services.NoteImageStore.SaveFromBitmap(bitmap);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Couldn't add the image: {ex.Message}", "TasksBar");
+                return;
+            }
+
+            // Show it at its real on-screen size, shrunk to fit the note
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+            double width = bitmap.PixelWidth / dpi.DpiScaleX;
+            double maxWidth = Math.Max(60, ImageLayer.ActualWidth - 16);
+            if (width > maxWidth) width = maxWidth;
+            double height = width * bitmap.PixelHeight / Math.Max(1, bitmap.PixelWidth);
+
+            // Cascade so several pastes don't stack exactly on top of each other
+            double offset = 8 + 16 * (_model.Images.Count % 5);
+            var image = new NoteImage
+            {
+                Id = id,
+                X = offset,
+                Y = offset,
+                Width = Math.Round(width, 1),
+                Height = Math.Round(height, 1)
+            };
+
+            _model.Images.Add(image);
+            ImageLayer.Children.Add(new NoteImageView(image, OnImagesChanged, RemoveImage));
+            OnImagesChanged();
+        }
+
+        private void RemoveImage(NoteImageView view)
+        {
+            _model.Images.Remove(view.Model);
+            ImageLayer.Children.Remove(view);
+            OnImagesChanged();
+        }
+
+        private void OnImagesChanged()
+        {
+            if (_model == null || _suppressSync) return;
+            Services.StickyNoteSync.MarkDirty(_model);
+        }
+
+        private string _shownImages = "";
+
+        // Rebuilds the image views, unless the same images are already shown (so a sync never interrupts a drag)
+        private void LoadImages()
+        {
+            string signature = string.Join("|", _model.Images.Select(i =>
+                $"{i.Id},{i.X},{i.Y},{i.Width},{i.Height},{i.Rotation},{Services.NoteImageStore.Exists(i.Id)}"));
+            if (signature == _shownImages && ImageLayer.Children.Count == _model.Images.Count) return;
+            _shownImages = signature;
+
+            ImageLayer.Children.Clear();
+            foreach (var image in _model.Images)
+            {
+                ImageLayer.Children.Add(new NoteImageView(image, OnImagesChanged, RemoveImage));
+            }
         }
         private void Window_StateChanged(object sender, EventArgs e)
         {
@@ -208,6 +295,7 @@ namespace TasksBar
                 LoadInk();
                 UpdateInkColor();
                 NoteInkCanvas.Strokes.StrokesChanged += OnStrokesChanged;
+                LoadImages();
             }
             finally
             {
@@ -297,5 +385,43 @@ namespace TasksBar
         {
             this.Close();
         }
+
+        private void NoteMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = new ContextMenu
+            {
+                PlacementTarget = NoteMenuButton,
+                Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom
+            };
+
+            var deleteItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Delete note",
+                Icon = new SymbolIcon(SymbolRegular.Delete16)
+            };
+            // Unlike closing, this removes the note everywhere it syncs to
+            deleteItem.Click += (s, args) => DeleteNote(_model);
+            menu.Items.Add(deleteItem);
+
+            menu.IsOpen = true;
+        }
+
+        /// <summary>Removes a note for good: locally, from Google, and closes its window.</summary>
+        public static void DeleteNote(StickyNoteModel note)
+        {
+            LocalDataManager.ActiveNotes.Remove(note);
+            LocalDataManager.SaveNotes();
+            _ = Services.StickyNoteSync.DeleteNoteAsync(note);
+
+            foreach (var window in Application.Current.Windows.OfType<StickyNoteWindow>().ToList())
+            {
+                if (window.GetModel() == note) window.Close();
+            }
+
+            // Keep an open Settings > Sticky Notes page in step
+            NoteDeleted?.Invoke(note);
+        }
+
+        public static event Action<StickyNoteModel>? NoteDeleted;
     }
 }

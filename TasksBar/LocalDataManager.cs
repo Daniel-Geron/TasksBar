@@ -16,11 +16,27 @@ namespace TasksBar
         // Whether this note's window opens when TasksBar starts. Synced to Google with the note.
         public bool OpenOnStartup { get; set; } = true;
 
+        // Pasted images floating on the note. The pixels live in note_images/{Id}.jpg (see Services/NoteImageStore.cs)
+        public System.Collections.Generic.List<NoteImage> Images { get; set; } = new System.Collections.Generic.List<NoteImage>();
+
+        // Google subtasks already holding each image's data, so an image is uploaded only once
+        public System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> ImageTaskIds { get; set; } = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
+
         // Google Tasks sync state (see Services/StickyNoteSync.cs). Position stays per-device.
         public string? GoogleTaskId { get; set; }
         public System.Collections.Generic.List<string> PartTaskIds { get; set; } = new System.Collections.Generic.List<string>();
         public string? RemoteUpdated { get; set; }
         public bool IsDirty { get; set; }
+    }
+
+    public class NoteImage
+    {
+        public string Id { get; set; } = ""; // Hash of the JPEG bytes, so identical images share one file
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public double Rotation { get; set; } // Degrees clockwise around the image's center
     }
 
     public class LocalTaskList

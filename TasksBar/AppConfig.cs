@@ -48,6 +48,10 @@ namespace TasksBar
         public string StickyNotesListId { get; set; } = "";
         public System.Collections.Generic.List<string> PendingNoteDeletes { get; set; } = new System.Collections.Generic.List<string>();
 
+        // System-wide sticky note shortcuts, e.g. "Ctrl+Alt+N" (empty = off). See Services/HotkeyManager.cs
+        public string NewNoteHotkey { get; set; } = "";
+        public string OpenAllNotesHotkey { get; set; } = "";
+
     }
 
 

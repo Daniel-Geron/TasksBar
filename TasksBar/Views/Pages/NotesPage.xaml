@@ -1,4 +1,4 @@
-﻿<Page x:Class="TasksBar.NotesPage"
+<Page x:Class="TasksBar.NotesPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
@@ -7,12 +7,23 @@
     <Grid Margin="20,10,20,30" MaxWidth="800">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Manage Notes" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,24" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
-        <ListView x:Name="NotesListView" Grid.Row="1" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ui:CardControl Grid.Row="1" Icon="{ui:SymbolIcon Rocket24}" Margin="0,0,0,16">
+            <ui:CardControl.Header>
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Text="Open Notes When TasksBar Starts" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                    <TextBlock x:Name="OpenAllSummaryText" FontSize="12" Opacity="0.5" />
+                </StackPanel>
+            </ui:CardControl.Header>
+            <ui:ToggleSwitch x:Name="OpenAllToggle" Click="OpenAllToggle_Click" />
+        </ui:CardControl>
+
+        <ListView x:Name="NotesListView" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <ui:CardControl Margin="0,0,0,8">
@@ -20,9 +31,11 @@
                             <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" MaxWidth="400" MaxHeight="60" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </ui:CardControl.Header>
                         <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Open at startup" FontSize="12" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ui:ToggleSwitch IsChecked="{Binding OpenOnStartup, Mode=OneWay}" Click="OpenOnStartup_Click" Tag="{Binding}" Margin="0,0,16,0" VerticalAlignment="Center"/>
                             <ui:Button Content="Open" Icon="{ui:SymbolIcon Symbol=Open24}" Margin="0,0,8,0" Click="OpenNote_Click" Tag="{Binding}"/>
 
-                            <ui:Button Appearance="Danger" Icon="{ui:SymbolIcon Symbol=Delete24}" Click="DeleteNote_Click" Tag="{Binding}"/>
+                            <ui:Button Icon="{ui:SymbolIcon Symbol=Delete24}" ToolTip="Delete note" Click="DeleteNote_Click" Tag="{Binding}"/>
                         </StackPanel>
                     </ui:CardControl>
                 </DataTemplate>

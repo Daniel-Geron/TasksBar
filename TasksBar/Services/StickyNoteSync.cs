@@ -14,7 +14,8 @@ namespace TasksBar.Services
     /// <summary>
     /// Mirrors sticky notes into a dedicated Google Tasks list so they survive across devices
     /// and can be read in the Google Tasks app. One task per note: the title is the note's first
-    /// line, the details hold the note text followed by the drawing data. Content that doesn't fit
+    /// line, the details hold the note text, then (only when not default) a small settings block,
+    /// then the drawing data. Content that doesn't fit
     /// in Google's details limit continues in numbered subtasks of that task.
     /// Everything runs on the UI thread; a semaphore keeps pushes and pulls from overlapping.
     /// </summary>
@@ -25,6 +26,8 @@ namespace TasksBar.Services
         // Google rejects notes longer than 8192 characters; keep a little headroom
         private const int MaxNotesLength = 8000;
         private const string DrawingMarker = "──── TasksBar drawing data (don't edit below) ────";
+        private const string SettingsMarker = "──── TasksBar note settings (don't edit below) ────";
+        private const string OpenOnStartupOff = "open-on-startup: off";
         private const string PartTitlePrefix = "TasksBar note data, part ";
 
         private static readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
@@ -232,8 +235,9 @@ namespace TasksBar.Services
             // Snapshot what we send, so an edit made while the request is in flight stays dirty
             string text = note.Text ?? "";
             string ink = note.InkData ?? "";
+            bool openOnStartup = note.OpenOnStartup;
 
-            List<string> chunks = SplitPayload(BuildPayload(text, ink));
+            List<string> chunks = SplitPayload(BuildPayload(text, ink, openOnStartup));
             var body = new GTask
             {
                 Title = MakeTitle(text, ink),
@@ -289,7 +293,7 @@ namespace TasksBar.Services
             }
 
             note.RemoteUpdated = saved.Updated;
-            if (note.Text == text && note.InkData == ink) note.IsDirty = false;
+            if (note.Text == text && note.InkData == ink && note.OpenOnStartup == openOnStartup) note.IsDirty = false;
         }
 
         // ------------------------------------------------------------------ download
@@ -337,7 +341,7 @@ namespace TasksBar.Services
 
                 string payload = (task.Notes ?? "") +
                     (partsAreCurrent ? string.Concat(orderedParts.Select(p => p.Notes ?? "")) : "");
-                ParsePayload(payload, out string text, out string ink);
+                ParsePayload(payload, out string text, out string ink, out bool openOnStartup);
 
                 bool isNew = local == null;
                 if (local == null)
@@ -350,6 +354,7 @@ namespace TasksBar.Services
                 local.GoogleTaskId = task.Id;
                 local.Text = text;
                 local.InkData = ink;
+                local.OpenOnStartup = openOnStartup;
                 local.PartTaskIds = orderedParts.Select(p => p.Id).ToList(); // stale ones get deleted on the next upload
                 local.RemoteUpdated = task.Updated;
                 local.IsDirty = false;
@@ -360,8 +365,10 @@ namespace TasksBar.Services
                 {
                     window.ReloadFromModel();
                 }
-                else
+                else if (isNew && local.OpenOnStartup)
                 {
+                    // A note arriving from another device opens like it would at startup.
+                    // Closed notes that were only edited elsewhere stay closed.
                     window = new StickyNoteWindow(local);
                     window.Show();
 
@@ -410,26 +417,47 @@ namespace TasksBar.Services
             catch { return false; }
         }
 
-        private static string BuildPayload(string text, string ink)
+        private static string BuildPayload(string text, string ink, bool openOnStartup)
         {
-            if (!HasStrokes(ink)) return text;
-            return $"{text}\n\n{DrawingMarker}\n{ink}";
+            string payload = text;
+            // Only written when off, so notes on the default setting look exactly as before
+            if (!openOnStartup) payload += $"\n\n{SettingsMarker}\n{OpenOnStartupOff}";
+            if (HasStrokes(ink)) payload += $"\n\n{DrawingMarker}\n{ink}";
+            return payload;
         }
 
-        private static void ParsePayload(string payload, out string text, out string ink)
+        private static void ParsePayload(string payload, out string text, out string ink, out bool openOnStartup)
         {
-            int marker = payload.LastIndexOf(DrawingMarker, StringComparison.Ordinal);
-            if (marker < 0)
+            // Each block runs until the other block's marker or the end, so their order doesn't matter
+            int drawing = payload.LastIndexOf(DrawingMarker, StringComparison.Ordinal);
+            int settings = payload.LastIndexOf(SettingsMarker, StringComparison.Ordinal);
+
+            ink = "";
+            if (drawing >= 0)
             {
-                text = payload;
-                ink = "";
-                return;
+                int end = settings > drawing ? settings : payload.Length;
+                string block = payload.Substring(drawing + DrawingMarker.Length, end - drawing - DrawingMarker.Length);
+                // Base64 has no whitespace; strip any line breaks an editor may have added
+                ink = new string(block.Where(c => !char.IsWhiteSpace(c)).ToArray());
+                if (!HasStrokes(ink)) ink = "";
             }
 
-            text = payload.Substring(0, marker).TrimEnd('\n', '\r');
-            // Base64 has no whitespace; strip any line breaks an editor may have added
-            ink = new string(payload.Substring(marker + DrawingMarker.Length).Where(c => !char.IsWhiteSpace(c)).ToArray());
-            if (!HasStrokes(ink)) ink = "";
+            openOnStartup = true;
+            if (settings >= 0)
+            {
+                int end = drawing > settings ? drawing : payload.Length;
+                openOnStartup = !payload.Substring(settings, end - settings).Contains(OpenOnStartupOff, StringComparison.OrdinalIgnoreCase);
+            }
+
+            int textEnd = new[] { drawing, settings }.Where(i => i >= 0).DefaultIfEmpty(payload.Length).Min();
+            text = payload.Substring(0, textEnd);
+
+            // Remove only the blank line BuildPayload puts before a block, so the note's own trailing newlines survive
+            if (textEnd < payload.Length)
+            {
+                if (text.EndsWith("\n\n", StringComparison.Ordinal)) text = text.Substring(0, text.Length - 2);
+                else text = text.TrimEnd('\n', '\r');
+            }
         }
 
         private static List<string> SplitPayload(string payload)

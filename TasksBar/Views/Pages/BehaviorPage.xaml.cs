@@ -22,8 +22,108 @@ namespace TasksBar
             HoverSoundToggle.IsChecked = AppConfig.Settings.EnableHoverSound;
             ClickSoundToggle.IsChecked = AppConfig.Settings.EnableClickSound;
             UpdateSoundFileLabels();
+            UpdateHotkeyBoxes();
+            // Never leave the shortcuts suspended if settings closes mid-recording
+            Unloaded += (s, e) => Services.HotkeyManager.Apply();
 
             _isLoaded = true;
+        }
+
+        // --- STICKY NOTE SHORTCUTS ---
+
+        private string GetHotkey(string which) =>
+            which == "NewNote" ? AppConfig.Settings.NewNoteHotkey : AppConfig.Settings.OpenAllNotesHotkey;
+
+        private void SetHotkey(string which, string value)
+        {
+            if (which == "NewNote") AppConfig.Settings.NewNoteHotkey = value;
+            else AppConfig.Settings.OpenAllNotesHotkey = value;
+            AppConfig.Save();
+        }
+
+        private void UpdateHotkeyBoxes()
+        {
+            NewNoteHotkeyBox.Text = AppConfig.Settings.NewNoteHotkey;
+            OpenAllNotesHotkeyBox.Text = AppConfig.Settings.OpenAllNotesHotkey;
+            ShowHotkeyStatus(NewNoteHotkeyStatus, AppConfig.Settings.NewNoteHotkey);
+            ShowHotkeyStatus(OpenAllNotesHotkeyStatus, AppConfig.Settings.OpenAllNotesHotkey);
+        }
+
+        private static void ShowHotkeyStatus(TextBlock status, string shortcut)
+        {
+            string? problem = null;
+            if (!string.IsNullOrEmpty(shortcut) &&
+                AppConfig.Settings.NewNoteHotkey == AppConfig.Settings.OpenAllNotesHotkey)
+                problem = "Both shortcuts are the same";
+            else if (Services.HotkeyManager.FailedShortcuts.Contains(shortcut))
+                problem = "Already used by Windows or another app";
+
+            status.Text = problem ?? "";
+            status.Visibility = problem == null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void HotkeyBox_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            // Release the shortcuts so pressing an existing one gets recorded instead of firing
+            Services.HotkeyManager.Suspend();
+        }
+
+        private void HotkeyBox_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            Services.HotkeyManager.Apply();
+            UpdateHotkeyBoxes();
+        }
+
+        private void HotkeyBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (sender is not Wpf.Ui.Controls.TextBox box || box.Tag is not string which) return;
+            e.Handled = true;
+
+            var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+
+            // Escape cancels, Backspace/Delete alone removes the shortcut
+            if (modifiers == System.Windows.Input.ModifierKeys.None)
+            {
+                if (key == System.Windows.Input.Key.Escape)
+                {
+                    System.Windows.Input.Keyboard.ClearFocus();
+                    return;
+                }
+                if (key == System.Windows.Input.Key.Back || key == System.Windows.Input.Key.Delete)
+                {
+                    SetHotkey(which, "");
+                    System.Windows.Input.Keyboard.ClearFocus();
+                    return;
+                }
+            }
+
+            // Still holding only modifiers: preview what's being pressed
+            if (Services.HotkeyManager.IsModifierKey(key))
+            {
+                box.Text = Services.HotkeyManager.Format(modifiers, System.Windows.Input.Key.None) + "+";
+                return;
+            }
+
+            // A shortcut needs at least one of Ctrl/Alt/Shift/Win so normal typing isn't hijacked
+            if (modifiers == System.Windows.Input.ModifierKeys.None)
+            {
+                box.Text = "Add Ctrl, Alt, Shift or Win";
+                return;
+            }
+
+            SetHotkey(which, Services.HotkeyManager.Format(modifiers, key));
+            System.Windows.Input.Keyboard.ClearFocus(); // Re-registers via LostKeyboardFocus
+        }
+
+        private void ClearHotkey_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is string which)
+            {
+                SetHotkey(which, "");
+                Services.HotkeyManager.Apply();
+                UpdateHotkeyBoxes();
+            }
         }
 
         private void UpdateSoundFileLabels()

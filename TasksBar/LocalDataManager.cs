@@ -13,6 +13,9 @@ namespace TasksBar
         public double Top { get; set; } = 0;
         public string InkData { get; set; } = "";
 
+        // Whether this note's window opens when TasksBar starts. Synced to Google with the note.
+        public bool OpenOnStartup { get; set; } = true;
+
         // Google Tasks sync state (see Services/StickyNoteSync.cs). Position stays per-device.
         public string? GoogleTaskId { get; set; }
         public System.Collections.Generic.List<string> PartTaskIds { get; set; } = new System.Collections.Generic.List<string>();

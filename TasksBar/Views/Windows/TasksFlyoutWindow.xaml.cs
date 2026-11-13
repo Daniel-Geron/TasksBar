@@ -1,4 +1,4 @@
-﻿using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Tasks.v1;
 using System;
@@ -78,10 +78,12 @@ namespace TasksBar
                 PlaySlideAnimation();
 
                 LocalDataManager.LoadNotes();
-                foreach (var note in LocalDataManager.ActiveNotes)
+                foreach (var note in LocalDataManager.ActiveNotes.Where(n => n.OpenOnStartup))
                 {
                     new StickyNoteWindow(note).Show();
                 }
+
+                Services.HotkeyManager.Initialize();
 
                 if (AppConfig.Settings.EnableGoogleSync)
                 {
@@ -147,14 +149,17 @@ namespace TasksBar
             _trayIcon.Visible = true;
 
             // Add a default menu instantly so right-click is never broken
-            var defaultMenu = new System.Windows.Forms.ContextMenuStrip();
-            defaultMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
-            _trayIcon.ContextMenuStrip = defaultMenu;
+            _trayMenu = new System.Windows.Controls.ContextMenu();
+            _trayMenu.Items.Add(CreateExitTrayItem());
 
-            // Handle Left-Click to toggle the window
+            // Handle Left-Click to toggle the window, Right-Click for the themed list menu
             _trayIcon.MouseClick += async (s, e) =>
             {
-                if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                if (e.Button == System.Windows.Forms.MouseButtons.Right)
+                {
+                    ShowTrayMenu();
+                }
+                else if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
                     if (this.IsVisible && this.Opacity > 0)
                     {
@@ -169,6 +174,46 @@ namespace TasksBar
                     }
                 }
             };
+        }
+
+        // The tray menu is a WPF ContextMenu (instead of a WinForms one) so it uses the same
+        // WPF-UI styling and light/dark theme as the rest of the app
+        private System.Windows.Controls.ContextMenu _trayMenu;
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private void ShowTrayMenu()
+        {
+            if (_trayMenu.IsOpen) _trayMenu.IsOpen = false;
+
+            _trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+            _trayMenu.IsOpen = true;
+
+            // The menu only closes on outside clicks if it owns the foreground, like a native tray menu
+            if (PresentationSource.FromVisual(_trayMenu) is System.Windows.Interop.HwndSource source)
+            {
+                SetForegroundWindow(source.Handle);
+            }
+            _trayMenu.Focus();
+        }
+
+        // Every list gets a checkmark icon (invisible unless selected) so the titles stay aligned
+        private System.Windows.Controls.MenuItem CreateTrayListItem(string title, bool isSelected)
+        {
+            return new System.Windows.Controls.MenuItem
+            {
+                Header = title,
+                Icon = new Wpf.Ui.Controls.SymbolIcon(Wpf.Ui.Controls.SymbolRegular.Checkmark16) { Opacity = isSelected ? 1 : 0 },
+                FontWeight = isSelected ? FontWeights.SemiBold : FontWeights.Normal
+            };
+        }
+
+        private System.Windows.Controls.MenuItem CreateExitTrayItem()
+        {
+            var exitItem = new System.Windows.Controls.MenuItem { Header = "Exit TasksBar" };
+            exitItem.Click += (s, e) => Application.Current.Shutdown();
+            return exitItem;
         }
 
         // Ensure the icon cleans itself up when the app completely closes
@@ -586,10 +631,128 @@ namespace TasksBar
                     }
                 };
 
+                // "Move to..." fetches the lists only when its submenu opens, so newly created lists always show up
+                var moveItem = new System.Windows.Controls.MenuItem { Header = "Move to..." };
+                moveItem.Items.Add(new System.Windows.Controls.MenuItem { Header = "Loading...", IsEnabled = false });
+
+                if (btn.Tag is TaskItem taskToMove)
+                {
+                    // A new task that hasn't been saved yet has nothing to move
+                    moveItem.IsEnabled = taskToMove.Id != null;
+
+                    bool listsLoaded = false;
+                    moveItem.SubmenuOpened += async (s, args) =>
+                    {
+                        if (args.OriginalSource != moveItem || listsLoaded) return;
+                        listsLoaded = true;
+
+                        var targets = await GetMoveTargetListsAsync();
+                        moveItem.Items.Clear();
+
+                        if (targets.Count == 0)
+                        {
+                            moveItem.Items.Add(new System.Windows.Controls.MenuItem { Header = "No other lists", IsEnabled = false });
+                            return;
+                        }
+
+                        foreach (var (listId, listTitle) in targets)
+                        {
+                            var listItem = new System.Windows.Controls.MenuItem { Header = listTitle };
+                            listItem.Click += async (s2, args2) => await MoveTaskToList(taskToMove, listId, listTitle);
+                            moveItem.Items.Add(listItem);
+                        }
+                    };
+                }
+
+                menu.Items.Add(moveItem);
                 menu.Items.Add(deleteItem);
                 menu.PlacementTarget = btn;
                 menu.IsOpen = true;
             }
+        }
+
+        // Every list except the one being shown (and the hidden sticky notes list)
+        private async Task<List<(string Id, string Title)>> GetMoveTargetListsAsync()
+        {
+            var targets = new List<(string Id, string Title)>();
+
+            if (AppConfig.Settings.EnableGoogleSync)
+            {
+                if (_googleTasksService == null) return targets;
+                try
+                {
+                    var request = _googleTasksService.Tasklists.List();
+                    request.MaxResults = 100;
+                    var response = await request.ExecuteAsync();
+                    foreach (var lst in response.Items ?? new List<Google.Apis.Tasks.v1.Data.TaskList>())
+                    {
+                        if (lst.Id == AppConfig.Settings.SelectedListId || Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
+                        targets.Add((lst.Id, lst.Title));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await HandleGoogleErrorAsync(ex);
+                }
+            }
+            else
+            {
+                foreach (var lst in LocalDataManager.GetLocalLists())
+                {
+                    if (lst.Id == AppConfig.Settings.SelectedListId) continue;
+                    targets.Add((lst.Id, lst.Title));
+                }
+            }
+
+            return targets;
+        }
+
+        private async Task MoveTaskToList(TaskItem task, string destinationListId, string destinationTitle)
+        {
+            string sourceListId = AppConfig.Settings.SelectedListId;
+            bool moved = false;
+
+            if (AppConfig.Settings.EnableGoogleSync)
+            {
+                if (_googleTasksService == null || task.Id == null) return;
+
+                await RunGoogleTaskRequest(async () =>
+                {
+                    var request = _googleTasksService.Tasks.Move(sourceListId, task.Id);
+                    request.DestinationTasklist = destinationListId;
+                    await request.ExecuteAsync();
+                    moved = true;
+                });
+
+                if (!moved && _googleTasksService != null)
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Couldn't move \"{task.Title}\" to {destinationTitle}.\n\nCheck your connection and try again.",
+                        "TasksBar", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                }
+            }
+            else
+            {
+                var destinationTasks = LocalDataManager.LoadTasks(destinationListId);
+                destinationTasks.Insert(0, task);
+                LocalDataManager.SaveTasks(destinationTasks, destinationListId);
+                moved = true;
+            }
+
+            if (!moved) return;
+
+            // The list may have changed while the request was running
+            if (AppConfig.Settings.SelectedListId == sourceListId && MyTasks.Contains(task))
+            {
+                task.PropertyChanged -= OnTaskPropertyChanged;
+                MyTasks.Remove(task);
+                if (!AppConfig.Settings.EnableGoogleSync)
+                {
+                    LocalDataManager.SaveTasks(MyTasks, sourceListId);
+                }
+            }
+
+            ShowCustomToast(task.Title, $"Moved to {destinationTitle}");
         }
 
         // --- WINDOW MANAGEMENT & CALCULATED ANIMATIONS ---
@@ -859,10 +1022,10 @@ namespace TasksBar
                 catch { /* Failsafe if offline */ }
             }
 
-            // 2. Build the WinForms UI strictly on the main thread
+            // 2. Build the menu strictly on the main thread
             Application.Current.Dispatcher.Invoke(() =>
             {
-                var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+                _trayMenu.Items.Clear();
 
                 if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null)
                 {
@@ -871,8 +1034,7 @@ namespace TasksBar
                         foreach (var lst in googleLists)
                         {
                             if (Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
-                            var item = new System.Windows.Forms.ToolStripMenuItem(lst.Title);
-                            item.Checked = (lst.Id == AppConfig.Settings.SelectedListId);
+                            var item = CreateTrayListItem(lst.Title, lst.Id == AppConfig.Settings.SelectedListId);
                             item.Click += async (s, e) =>
                             {
                                 AppConfig.Settings.SelectedListId = lst.Id;
@@ -881,7 +1043,7 @@ namespace TasksBar
                                 await PopulateTrayMenu();
                                 OpenFlyoutFromTray();
                             };
-                            contextMenu.Items.Add(item);
+                            _trayMenu.Items.Add(item);
                         }
                     }
                 }
@@ -890,8 +1052,7 @@ namespace TasksBar
                     var localLists = LocalDataManager.GetLocalLists();
                     foreach (var lst in localLists)
                     {
-                        var item = new System.Windows.Forms.ToolStripMenuItem(lst.Title);
-                        item.Checked = (lst.Id == AppConfig.Settings.SelectedListId);
+                        var item = CreateTrayListItem(lst.Title, lst.Id == AppConfig.Settings.SelectedListId);
                         item.Click += async (s, e) =>
                         {
                             AppConfig.Settings.SelectedListId = lst.Id;
@@ -900,15 +1061,12 @@ namespace TasksBar
                             await PopulateTrayMenu();
                             OpenFlyoutFromTray();
                         };
-                        contextMenu.Items.Add(item);
+                        _trayMenu.Items.Add(item);
                     }
                 }
 
-                contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-                contextMenu.Items.Add("Exit TasksBar", null, (s, e) => Application.Current.Shutdown());
-
-                // Apply the newly built menu safely
-                _trayIcon.ContextMenuStrip = contextMenu;
+                _trayMenu.Items.Add(new System.Windows.Controls.Separator());
+                _trayMenu.Items.Add(CreateExitTrayItem());
             });
         }
         public void OpenFlyoutFromTray()
@@ -923,8 +1081,9 @@ namespace TasksBar
         }
         private int _toastCounter = 0;
 
-        private async void ShowCustomToast(string title)
+        private async void ShowCustomToast(string title, string header = "Task Completed")
         {
+            ToastHeader.Text = header;
             ToastTaskTitle.Text = title;
             _toastCounter++;
             int currentToast = _toastCounter;

@@ -18,6 +18,39 @@ namespace TasksBar
             // Load the list directly from our central data manager
             DisplayNotes = new ObservableCollection<StickyNoteModel>(LocalDataManager.ActiveNotes);
             NotesListView.ItemsSource = DisplayNotes;
+            UpdateOpenAllToggle();
+        }
+
+        // The top switch is on only when every note opens at startup
+        private void UpdateOpenAllToggle()
+        {
+            int opening = DisplayNotes.Count(n => n.OpenOnStartup);
+            OpenAllToggle.IsChecked = DisplayNotes.Count > 0 && opening == DisplayNotes.Count;
+            OpenAllSummaryText.Text = $"{opening} of {DisplayNotes.Count} notes open automatically";
+        }
+
+        private void OpenOnStartup_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Wpf.Ui.Controls.ToggleSwitch toggle && toggle.Tag is StickyNoteModel note)
+            {
+                note.OpenOnStartup = toggle.IsChecked == true;
+                Services.StickyNoteSync.MarkDirty(note);
+                UpdateOpenAllToggle();
+            }
+        }
+
+        private void OpenAllToggle_Click(object sender, RoutedEventArgs e)
+        {
+            bool openAll = OpenAllToggle.IsChecked == true;
+
+            foreach (var note in DisplayNotes.Where(n => n.OpenOnStartup != openAll))
+            {
+                note.OpenOnStartup = openAll;
+                Services.StickyNoteSync.MarkDirty(note);
+            }
+
+            NotesListView.Items.Refresh();
+            UpdateOpenAllToggle();
         }
 
         private void OpenNote_Click(object sender, RoutedEventArgs e)

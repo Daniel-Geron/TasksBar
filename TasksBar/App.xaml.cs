@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Windows.Threading;
 using TasksBar.Services;
@@ -53,7 +54,27 @@ namespace TasksBar
         /// </summary>
         private async void OnStartup(object sender, StartupEventArgs e)
         {
+            Wpf.Ui.Appearance.ApplicationThemeManager.Changed += OnAppThemeChanged;
             await _host.StartAsync();
+        }
+
+        private void OnAppThemeChanged(Wpf.Ui.Appearance.ApplicationTheme theme, System.Windows.Media.Color accent)
+        {
+            // WPF UI makes a window's background transparent with SetCurrentValue, which the theme's
+            // resource refresh silently undoes, leaving an opaque background with no Mica/Acrylic.
+            // Re-apply every window's backdrop once that refresh has finished.
+            Dispatcher.BeginInvoke(new Action(ReapplyBackdrops), DispatcherPriority.Loaded);
+        }
+
+        private static void ReapplyBackdrops()
+        {
+            var expected = AppConfig.Settings.UseAcrylic ? Wpf.Ui.Controls.WindowBackdropType.Acrylic : Wpf.Ui.Controls.WindowBackdropType.Mica;
+            foreach (var window in Current.Windows.OfType<Wpf.Ui.Controls.FluentWindow>())
+            {
+                window.WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.None;
+                window.WindowBackdropType = expected;
+                if (window is StickyNoteWindow note) note.UpdateInkColor();
+            }
         }
 
         /// <summary>

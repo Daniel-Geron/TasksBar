@@ -62,7 +62,7 @@ namespace TasksBar
                 : CreatePlaceholder());
 
             _outline = new Border { BorderThickness = new Thickness(1.5), IsHitTestVisible = false, Visibility = Visibility.Hidden };
-            _outline.SetResourceReference(Border.BorderBrushProperty, "SystemAccentColorPrimaryBrush");
+            _outline.SetResourceReference(Border.BorderBrushProperty, "AccentFillColorDefaultBrush");
             Children.Add(_outline);
 
             _deleteButton = new Border
@@ -100,7 +100,7 @@ namespace TasksBar
                 Visibility = Visibility.Hidden,
                 Child = new Wpf.Ui.Controls.SymbolIcon(Wpf.Ui.Controls.SymbolRegular.ArrowRotateClockwise16) { Foreground = Brushes.White, FontSize = 14 }
             };
-            _rotateHandle.SetResourceReference(Border.BackgroundProperty, "SystemAccentColorPrimaryBrush");
+            _rotateHandle.SetResourceReference(Border.BackgroundProperty, "AccentFillColorDefaultBrush");
             _rotateHandle.MouseLeftButtonDown += (s, e) => BeginDrag(DragMode.Rotate, e);
             Children.Add(_rotateHandle);
 
@@ -140,7 +140,7 @@ namespace TasksBar
                 ToolTip = "Resize",
                 Visibility = Visibility.Hidden
             };
-            handle.SetResourceReference(Border.BackgroundProperty, "SystemAccentColorPrimaryBrush");
+            handle.SetResourceReference(Border.BackgroundProperty, "AccentFillColorDefaultBrush");
             handle.MouseLeftButtonDown += (s, e) =>
             {
                 _cornerSignX = signX;

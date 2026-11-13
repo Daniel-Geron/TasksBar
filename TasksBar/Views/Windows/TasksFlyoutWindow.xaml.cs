@@ -427,7 +427,8 @@ namespace TasksBar
             // Update the visual icon
             UpdatePinIcon();
 
-            
+            // Remember it, otherwise the next launch reverts to whatever was last saved
+            AppConfig.Save();
         }
 
         private void AddNote_Click(object sender, RoutedEventArgs e)
@@ -568,9 +569,21 @@ namespace TasksBar
                 // 4. Run your original completion logic
                 if (task.IsCompleted)
                 {
-                    // Wait for the smooth strikethrough effect
-                    await Task.Delay(1500);
+                    // Ripple + particle burst from the check circle
+                    var center = btn.TranslatePoint(new Point(btn.ActualWidth / 2, btn.ActualHeight / 2), EffectsLayer);
+                    var accent = (FindResource("AccentFillColorDefaultBrush") as SolidColorBrush)?.Color ?? Color.FromRgb(0x00, 0xD5, 0xE1);
+                    TaskCompletionEffects.PlayBurst(EffectsLayer, center, accent);
+
+                    // Let the checkmark and strikethrough register before the task leaves
+                    await Task.Delay(900);
                     if (!task.IsCompleted) return;
+
+                    // Slide the row away and close the gap smoothly instead of the list jumping
+                    if (TasksListView.ItemContainerGenerator.ContainerFromItem(task) is FrameworkElement row)
+                    {
+                        btn.IsHitTestVisible = false; // Too late to undo once it's leaving
+                        await TaskCompletionEffects.SlideOutAndCollapseAsync(row);
+                    }
 
                     // Remove from UI
                     MyTasks.Remove(task);

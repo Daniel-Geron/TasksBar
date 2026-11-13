@@ -49,25 +49,6 @@ namespace TasksBar
             // WM_NCACTIVATE before WPF's window chrome, which would otherwise pass the real state on.
             _hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
             SetWindowSubclass(_hwnd, _keepBackdropProc, UIntPtr.Zero, UIntPtr.Zero);
-
-            Wpf.Ui.Appearance.ApplicationThemeManager.Changed += OnAppThemeChanged;
-        }
-
-        private void OnAppThemeChanged(Wpf.Ui.Appearance.ApplicationTheme theme, System.Windows.Media.Color accent)
-        {
-            // WPF UI makes the window background transparent with SetCurrentValue, which a
-            // DynamicResource re-evaluation silently undoes. Every new note re-applies the theme,
-            // so older notes got their opaque background back and lost Mica/Acrylic.
-            // Re-apply once the resource refresh has finished.
-            Dispatcher.BeginInvoke(new Action(ReapplyBackdrop), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
-        private void ReapplyBackdrop()
-        {
-            var expected = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
-            this.WindowBackdropType = WindowBackdropType.None;
-            this.WindowBackdropType = expected;
-            UpdateInkColor();
         }
 
         private static IntPtr KeepBackdropWhenInactive(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr refData)
@@ -221,17 +202,9 @@ namespace TasksBar
         }
         private void ApplyThemeSettings()
         {
-            if (AppConfig.Settings.AppTheme == 1)
-                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
-            else if (AppConfig.Settings.AppTheme == 2)
-                Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
-            else
-            {
-                Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
-                Wpf.Ui.Appearance.SystemThemeWatcher.Watch(this);
-            }
-            Wpf.Ui.Appearance.ApplicationAccentColorManager.ApplySystemAccent();
-
+            // The app-wide theme is applied once by the flyout (and by Settings when it changes).
+            // Re-applying it here reloaded every theme resource and knocked the backdrop off the
+            // other open windows, so a note only sets its own backdrop.
             this.WindowBackdropType = AppConfig.Settings.UseAcrylic ? WindowBackdropType.Acrylic : WindowBackdropType.Mica;
         }
 
@@ -355,8 +328,6 @@ namespace TasksBar
         }
         protected override void OnClosed(EventArgs e)
         {
-            // Static event: unsubscribe so closed notes can be garbage collected
-            Wpf.Ui.Appearance.ApplicationThemeManager.Changed -= OnAppThemeChanged;
             if (_hwnd != IntPtr.Zero) RemoveWindowSubclass(_hwnd, _keepBackdropProc, UIntPtr.Zero);
             base.OnClosed(e);
 

@@ -1,4 +1,5 @@
 
+
 # TasksBar
 
 
@@ -21,7 +22,7 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
 * **Auto-Startup:** Option to register directly with the Windows Registry to launch silently on boot.
 * **Satisfying UX:** Features custom-built, bouncy physics animations for task completion.
 
-<img width="532" height="586" alt="Recording 2026-11-13 145924" src="https://github.com/user-attachments/assets/430899e1-23db-4c31-8cff-041e1cbd2f66" />
+<img width="494" height="552" alt="Recording 2026-11-16 070806" src="https://github.com/user-attachments/assets/0576c226-1a16-422e-90a3-f75dc88ba038" />
 
  # * You can also put cool cat images in your notes
  

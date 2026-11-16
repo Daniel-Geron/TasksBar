@@ -150,13 +150,27 @@ namespace TasksBar.Services.Sync
 
         public static bool IsNotFound(Exception ex) => ex is RemoteNotFoundException;
 
-        // The app password is encrypted for the current Windows user, so config.json alone doesn't reveal it
-        private static string Protect(string value) =>
-            Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser));
+        // On Windows the app password is encrypted for the current Windows user (DPAPI), so config.json
+        // alone doesn't reveal it. Linux has no DPAPI: there it's stored as-is ("plain:" prefix) in a
+        // config.json that only the user can read (see AppPaths.MakePrivate), like git's credential store.
+        private const string PlainPrefix = "plain:";
+
+        private static string Protect(string value)
+        {
+            if (!OperatingSystem.IsWindows())
+                return PlainPrefix + Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+            return Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser));
+        }
 
         private static string Unprotect(string value)
         {
-            try { return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value), null, DataProtectionScope.CurrentUser)); }
+            try
+            {
+                if (value.StartsWith(PlainPrefix, StringComparison.Ordinal))
+                    return Encoding.UTF8.GetString(Convert.FromBase64String(value.Substring(PlainPrefix.Length)));
+                if (!OperatingSystem.IsWindows()) return "";
+                return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value), null, DataProtectionScope.CurrentUser));
+            }
             catch { return ""; } // From another PC or user: they'll need to enter it again
         }
 

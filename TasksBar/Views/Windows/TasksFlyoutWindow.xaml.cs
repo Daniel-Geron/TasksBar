@@ -1,4 +1,4 @@
-using Google.Apis.Auth.OAuth2;
+﻿using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Tasks.v1;
 using System;
@@ -19,7 +19,6 @@ using System.Diagnostics;
 
 namespace TasksBar
 {
-    public enum WidgetPosition { TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight }
 
     public partial class TasksFlyoutWindow : FluentWindow
     {
@@ -40,6 +39,7 @@ namespace TasksBar
         public TasksFlyoutWindow()
         {
             AppConfig.Load();
+            Services.StickyNoteSync.Host = new Services.WpfStickyNoteHost();
 
             // 1. Create the window in memory FIRST
             InitializeComponent();
@@ -93,6 +93,7 @@ namespace TasksBar
                 PlaySlideAnimation();
 
                 LocalDataManager.LoadNotes();
+                Services.WpfInk.ConvertLegacyNotes();
                 Services.NoteImageStore.RemoveUnused(LocalDataManager.ActiveNotes);
                 foreach (var note in LocalDataManager.ActiveNotes.Where(n => n.OpenOnStartup))
                 {

@@ -16,8 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Apis.Auth" Version="1.73.0" />
-    <PackageReference Include="Google.Apis.Tasks.v1" Version="1.72.0.3958" />
+    <!-- Settings, data and sync shared with the Linux app (Google packages come through it) -->
+    <ProjectReference Include="..\TasksBar.Core\TasksBar.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.2.0" />
     <PackageReference Include="WPF-UI.DependencyInjection" Version="4.2.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />

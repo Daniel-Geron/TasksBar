@@ -115,7 +115,7 @@ namespace TasksBar
             // Text on the clipboard pastes into the note as usual
             if (Clipboard.ContainsText()) return;
 
-            var bitmap = Services.NoteImageStore.GetClipboardImage();
+            var bitmap = Services.NoteImageBitmaps.GetClipboardImage();
             if (bitmap == null) return;
 
             e.Handled = true;
@@ -127,7 +127,7 @@ namespace TasksBar
             string id;
             try
             {
-                id = Services.NoteImageStore.SaveFromBitmap(bitmap);
+                id = Services.NoteImageBitmaps.SaveFromBitmap(bitmap);
             }
             catch (Exception ex)
             {
@@ -247,12 +247,9 @@ namespace TasksBar
         {
             if (_model == null || _suppressSync) return;
 
-            using (MemoryStream ms = new MemoryStream())
-            {
-                NoteInkCanvas.Strokes.Save(ms);
-                _model.InkData = Convert.ToBase64String(ms.ToArray());
-                Services.StickyNoteSync.MarkDirty(_model);
-            }
+            // Saved in the format shared with the Linux app, not WPF's own
+            _model.InkData = Services.WpfInk.FromStrokes(NoteInkCanvas.Strokes);
+            Services.StickyNoteSync.MarkDirty(_model);
         }
 
         /// <summary>Shows content that sync pulled from another device, without re-uploading it.</summary>
@@ -278,18 +275,8 @@ namespace TasksBar
 
         private void LoadInk()
         {
-            if (!string.IsNullOrEmpty(_model.InkData))
-            {
-                try
-                {
-                    byte[] bytes = Convert.FromBase64String(_model.InkData);
-                    using (MemoryStream ms = new MemoryStream(bytes))
-                    {
-                        NoteInkCanvas.Strokes = new StrokeCollection(ms);
-                    }
-                }
-                catch { } // Ignore if string is corrupted
-            }
+            // Reads both the shared format and the WPF format older versions saved
+            if (!string.IsNullOrEmpty(_model.InkData)) NoteInkCanvas.Strokes = Services.WpfInk.ToStrokes(_model.InkData);
         }
         public void UpdateInkColor()
         {

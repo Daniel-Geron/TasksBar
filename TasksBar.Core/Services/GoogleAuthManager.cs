@@ -16,14 +16,11 @@ namespace TasksBar
 
         public static async Task<UserCredential> LoginAsync()
         {
-            // 1. Get the exact folder where TasksBar.exe lives
-            string baseDir = System.AppContext.BaseDirectory;
+            // The app's API credentials, and the saved sign-in, live in TasksBar's data folder
+            // (next to TasksBar.exe on Windows, ~/.config/TasksBar on Linux)
+            string credsPath = AppPaths.CredentialsFile;
+            string tokenPath = AppPaths.File("token.json");
 
-            // 2. Combine the folder path with the file names
-            string credsPath = System.IO.Path.Combine(baseDir, "credentials.json");
-            string tokenPath = System.IO.Path.Combine(baseDir, "token.json");
-
-            // 3. Use the absolute paths!
             using (var stream = new FileStream(credsPath, FileMode.Open, FileAccess.Read))
             {
                 _credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
@@ -51,7 +48,7 @@ namespace TasksBar
         // Forgets the dead token so the next LoginAsync opens the browser for a fresh sign-in
         public static async Task ClearSavedLoginAsync()
         {
-            string tokenPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, "token.json");
+            string tokenPath = AppPaths.File("token.json");
             await new FileDataStore(tokenPath, true).ClearAsync();
             _credential = null;
         }

@@ -1,0 +1,138 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ic="using:FluentIcons.Avalonia"
+        xmlns:views="using:TasksBar.Linux.Views"
+        x:Class="TasksBar.Linux.Views.StickyNoteWindow"
+        Title="Sticky Note" Width="250" Height="250" MinWidth="150" MinHeight="120"
+        SystemDecorations="None" CanResize="True" ShowInTaskbar="False" Topmost="True"
+        Background="Transparent" TransparencyLevelHint="AcrylicBlur, Blur, Transparent"
+        WindowStartupLocation="Manual"
+        FontFamily="fonts:Inter#Inter, $Default">
+
+    <Window.Styles>
+        <!-- Text / pen / eraser: no chrome until hovered; the chosen one is tinted with the accent -->
+        <Style Selector="ToggleButton.tool">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ToggleButton.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool:pressed">
+            <Setter Property="RenderTransform" Value="none"/>
+        </Style>
+
+        <!-- The note text: no box at all, just text on the note -->
+        <Style Selector="TextBox#NoteTextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBox#NoteTextBox /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="TextBox#NoteTextBox:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TextBox#NoteTextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="TextBox#NoteTextBox:focus">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBox#NoteTextBox /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+        <Style Selector="TextBox#NoteTextBox:focus /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- Rounded, with the Windows 11 hairline outline; the fill comes from Backdrop (acrylic or solid) -->
+    <Border x:Name="Chrome" CornerRadius="8" BorderThickness="1" ClipToBounds="True"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}">
+        <Panel>
+            <Grid x:Name="RootGrid" Margin="12" Background="Transparent" RowDefinitions="Auto,*">
+
+                <Button x:Name="NoteMenuButton" Grid.Row="0" Classes="flat" Padding="6" Margin="0,0,0,8"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" ToolTip.Tip="More options" Click="NoteMenuButton_Click">
+                    <ic:SymbolIcon Symbol="MoreHorizontal" FontSize="20" Width="20" Height="20"/>
+                </Button>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                    <ToggleButton x:Name="TextModeBtn" Classes="tool" Margin="0,0,4,0" IsChecked="True" Click="ModeButton_Click" ToolTip.Tip="Type Text">
+                        <ic:SymbolIcon Symbol="Keyboard" FontSize="20"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="PenModeBtn" Classes="tool" Margin="0,0,4,0" Click="ModeButton_Click" ToolTip.Tip="Draw Pencil">
+                        <ic:SymbolIcon Symbol="InkingTool" FontSize="20"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="EraserModeBtn" Classes="tool" Margin="0,0,8,0" Click="ModeButton_Click" ToolTip.Tip="Eraser">
+                        <ic:SymbolIcon Symbol="Eraser" FontSize="20"/>
+                    </ToggleButton>
+                    <Button Classes="flat" Padding="6" Click="CloseButton_Click" ToolTip.Tip="Close">
+                        <ic:SymbolIcon Symbol="Dismiss" FontSize="20"/>
+                    </Button>
+                </StackPanel>
+
+                <Panel Grid.Row="1">
+                    <TextBox x:Name="NoteTextBox" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalContentAlignment="Top" FontSize="14" Watermark="Write a note..."/>
+
+                    <!-- Pasted images float above the text and below the drawing (see NoteImageView) -->
+                    <Canvas x:Name="ImageLayer" ClipToBounds="True"/>
+
+                    <views:InkLayer x:Name="Ink"/>
+
+                    <!-- Shown for drawings saved by an older TasksBar for Windows, which only Windows can read -->
+                    <TextBlock x:Name="LegacyInkHint" IsVisible="False" IsHitTestVisible="False" FontSize="11"
+                               TextWrapping="Wrap" VerticalAlignment="Bottom" Margin="10,0,10,2"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                               Text="This note's drawing was made in an older TasksBar for Windows. Open TasksBar there once to bring it here."/>
+                </Panel>
+            </Grid>
+
+            <!-- Resize from any edge, plus the grip in the corner like the Windows note -->
+            <Border x:Name="EdgeLeft" Width="5" HorizontalAlignment="Left" Background="Transparent" Cursor="LeftSide"/>
+            <Border x:Name="EdgeRight" Width="5" HorizontalAlignment="Right" Background="Transparent" Cursor="RightSide"/>
+            <Border x:Name="EdgeTop" Height="5" VerticalAlignment="Top" Background="Transparent" Cursor="TopSide"/>
+            <Border x:Name="EdgeBottom" Height="5" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomSide"/>
+            <Border x:Name="CornerTopLeft" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Cursor="TopLeftCorner"/>
+            <Border x:Name="CornerTopRight" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Cursor="TopRightCorner"/>
+            <Border x:Name="CornerBottomLeft" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner"/>
+            <Panel x:Name="ResizeGrip" Width="14" Height="14" Margin="0,0,3,3" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Background="Transparent" Cursor="BottomRightCorner">
+                <Path Fill="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                      Data="M10,1 h2 v2 h-2 Z M6,5 h2 v2 h-2 Z M10,5 h2 v2 h-2 Z M2,9 h2 v2 h-2 Z M6,9 h2 v2 h-2 Z M10,9 h2 v2 h-2 Z"/>
+            </Panel>
+        </Panel>
+    </Border>
+</Window>

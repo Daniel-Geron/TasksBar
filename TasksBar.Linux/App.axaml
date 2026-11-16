@@ -1,0 +1,59 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TasksBar.Linux.App"
+             RequestedThemeVariant="Default">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- The same theme colors the Windows app gets from WPF-UI (Windows 11 Fluent palette).
+                 The accent brushes are filled in from the desktop's accent color at startup (App.axaml.cs). -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#C5FFFFFF"/>
+                    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#87FFFFFF"/>
+                    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#0FFFFFFF"/>
+                    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#15FFFFFF"/>
+                    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#08FFFFFF"/>
+                    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#12FFFFFF"/>
+                    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="#202020"/>
+                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#0DFFFFFF"/>
+                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#19000000"/>
+                    <SolidColorBrush x:Key="SurfaceStrokeColorDefaultBrush" Color="#66757575"/>
+                    <SolidColorBrush x:Key="TextUnderlineBrush" Color="#33FFFFFF"/>
+                    <SolidColorBrush x:Key="MenuBackgroundBrush" Color="#2C2C2C"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#E4000000"/>
+                    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#9E000000"/>
+                    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#72000000"/>
+                    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#B3FFFFFF"/>
+                    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#80F9F9F9"/>
+                    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#4DF9F9F9"/>
+                    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#0F000000"/>
+                    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="#F3F3F3"/>
+                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#B3FFFFFF"/>
+                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#0F000000"/>
+                    <SolidColorBrush x:Key="SurfaceStrokeColorDefaultBrush" Color="#66757575"/>
+                    <SolidColorBrush x:Key="TextUnderlineBrush" Color="#29000000"/>
+                    <SolidColorBrush x:Key="MenuBackgroundBrush" Color="#F9F9F9"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="/Styles.axaml"/>
+    </Application.Styles>
+
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon Icon="/Assets/tasksbar.png" ToolTipText="TasksBar" Clicked="TrayIcon_Clicked">
+                <TrayIcon.Menu>
+                    <NativeMenu/>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
+</Application>

@@ -1,0 +1,168 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ic="using:FluentIcons.Avalonia"
+        xmlns:core="using:TasksBar"
+        xmlns:views="using:TasksBar.Linux.Views"
+        x:Class="TasksBar.Linux.Views.FlyoutWindow"
+        x:DataType="core:TaskItem"
+        Title="My Tasks" Width="320" Height="450"
+        SystemDecorations="None" CanResize="False" ShowInTaskbar="False"
+        Background="Transparent" TransparencyLevelHint="AcrylicBlur, Blur, Transparent"
+        WindowStartupLocation="Manual"
+        FontFamily="fonts:Inter#Inter, $Default">
+
+    <Window.Styles>
+        <!-- Task card: highlights on hover; the ⋯ button only shows on hover -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.card:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}"/>
+        </Style>
+        <Style Selector="Border.card Button.more">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Border.card:pointerover Button.more">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <!-- Details only show when there are some, or while the task is being edited -->
+        <Style Selector="TextBox.details">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="TextBox.details.has">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="Border.card:focus-within TextBox.details">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- The window itself: rounded, with the Windows 11 hairline outline. The fill is set in code
+         depending on whether the desktop can blur behind it (acrylic) or not. -->
+    <Border x:Name="Chrome" CornerRadius="8" BorderThickness="1" ClipToBounds="True"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}">
+        <Panel x:Name="SlideRoot">
+            <Grid x:Name="RootGrid" Margin="12,12,12,6" Background="Transparent" RowDefinitions="Auto,Auto,*,Auto">
+
+                <!-- Header: drag to move (unless locked); pin, new note, settings -->
+                <Grid x:Name="Header" Grid.Row="0" Margin="0,0,0,16" Background="Transparent" ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                        <Button x:Name="PinButton" Classes="flat" Padding="4" Click="PinButton_Click" ToolTip.Tip="Pin">
+                            <ic:SymbolIcon x:Name="PinIcon" Symbol="Pin" FontSize="20"/>
+                        </Button>
+                        <Button Classes="flat" Padding="4" Click="AddNote_Click" ToolTip.Tip="New sticky note">
+                            <ic:SymbolIcon Symbol="Note" FontSize="20"/>
+                        </Button>
+                        <Button Classes="flat" Padding="4" Click="Settings_Click" ToolTip.Tip="Settings">
+                            <ic:SymbolIcon Symbol="Settings" IconVariant="Filled" FontSize="20"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Button Grid.Row="1" Classes="flat" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="4,8" Click="AddTaskTop_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <ic:SymbolIcon Symbol="Add" FontSize="20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,12,0"/>
+                        <TextBlock Text="Add a task" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- The padding gives the check circle's hover glow room inside the list's clip;
+                     the negative margin keeps the layout where it was -->
+                <ScrollViewer x:Name="TasksScroll" Grid.Row="2" Margin="-12,0,0,12" Padding="12,12,0,0"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="TasksList">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="core:TaskItem">
+                                <Border Classes="card" CornerRadius="6" Padding="10,8">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <views:CheckCircle VerticalAlignment="Top" Margin="0,3,10,0"
+                                                           IsChecked="{Binding IsCompleted, Mode=OneWay}"
+                                                           Toggled="CheckCircle_Toggled"/>
+
+                                        <StackPanel Grid.Column="1" Margin="0,0,6,0">
+                                            <TextBox Name="TaskTitleInput" Classes="task title"
+                                                     Text="{Binding Title, UpdateSourceTrigger=LostFocus}"
+                                                     AcceptsReturn="False" MaxLines="4"
+                                                     FontSize="14" FontWeight="Medium" Padding="0,0,0,2"
+                                                     Watermark="Task title"/>
+                                            <TextBox Name="TaskDetailsInput" Classes="task details"
+                                                     Classes.has="{Binding HasDetails}"
+                                                     Text="{Binding Details, UpdateSourceTrigger=LostFocus}"
+                                                     AcceptsReturn="True"
+                                                     FontSize="12" Padding="0,2,0,0"
+                                                     Watermark="Add details"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Classes="flat more" VerticalAlignment="Top" Padding="2" Margin="0,2,0,0"
+                                                Click="MoreOptions_Click">
+                                            <ic:SymbolIcon Symbol="MoreHorizontal" FontSize="20"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <Rectangle Grid.Row="3" Fill="{DynamicResource AccentFillColorDefaultBrush}" Height="4" RadiusX="2" RadiusY="2"
+                           Width="60" VerticalAlignment="Bottom" HorizontalAlignment="Center"/>
+            </Grid>
+
+            <!-- The floating card and landing outline while a task is dragged (see TaskReorder) -->
+            <Canvas x:Name="DragLayer" IsHitTestVisible="False"/>
+
+            <!-- Celebration burst when a task is completed -->
+            <Canvas x:Name="EffectsLayer" IsHitTestVisible="False"/>
+
+            <!-- Celebration toast (animated in ShowToast). Translucent and tinted with the accent color -->
+            <Grid x:Name="ToastPopup" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,24"
+                  MinWidth="236" MaxWidth="286" Opacity="0" IsHitTestVisible="False" RenderTransformOrigin="50%,100%">
+                <Border x:Name="ToastGlow" CornerRadius="14" Margin="-4" Opacity="0" Background="{DynamicResource AccentFillColorDefaultBrush}">
+                    <Border.Effect>
+                        <BlurEffect Radius="22"/>
+                    </Border.Effect>
+                </Border>
+                <Border CornerRadius="10" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" Opacity="0.9"/>
+                <Border x:Name="ToastTint" CornerRadius="10"/>
+                <Border x:Name="ToastShine" CornerRadius="10"/>
+                <Border x:Name="ToastOutline" CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"/>
+
+                <!-- Time-left bar -->
+                <Border CornerRadius="0,0,10,10" VerticalAlignment="Bottom" Height="3" Margin="10,0,10,1" ClipToBounds="True">
+                    <Rectangle x:Name="ToastProgress" Fill="{DynamicResource AccentFillColorDefaultBrush}" RadiusX="1.5" RadiusY="1.5"
+                               Opacity="0.85" RenderTransformOrigin="0%,50%"/>
+                </Border>
+
+                <Grid Margin="14,11,14,13" ColumnDefinitions="Auto,*,Auto">
+                    <Panel x:Name="ToastIcon" Width="30" Height="30" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Ellipse x:Name="ToastIconRing" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="2" Opacity="0"/>
+                        <Ellipse x:Name="ToastIconCircle" Fill="{DynamicResource AccentFillColorDefaultBrush}"/>
+                        <Path x:Name="ToastCheck" Data="M 9,15.5 L 13.2,19.5 L 21,11" Stroke="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                              StrokeThickness="2.4" StrokeLineCap="Round" StrokeJoin="Round"
+                              StrokeDashArray="8,8" StrokeDashOffset="8"/>
+                    </Panel>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock x:Name="ToastHeader" Text="Task completed" FontWeight="SemiBold" FontSize="14"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock x:Name="ToastTaskTitle" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <Border x:Name="ToastCombo" Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="10" Padding="8,2"
+                            Background="{DynamicResource AccentFillColorDefaultBrush}" IsVisible="False">
+                        <TextBlock x:Name="ToastComboText" Text="×2" FontWeight="Bold" FontSize="12"
+                                   Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Panel>
+    </Border>
+</Window>

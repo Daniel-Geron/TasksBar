@@ -56,7 +56,7 @@ namespace TasksBar
             RenderTransformOrigin = new Point(0.5, 0.5);
             RenderTransform = _rotation;
 
-            _bitmap = Services.NoteImageStore.Load(model.Id);
+            _bitmap = Services.NoteImageBitmaps.Load(model.Id);
             Children.Add(_bitmap != null
                 ? new Image { Source = _bitmap, Stretch = Stretch.Fill }
                 : CreatePlaceholder());

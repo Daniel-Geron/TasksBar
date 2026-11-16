@@ -3,6 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:local="clr-namespace:TasksBar"
+                 xmlns:core="clr-namespace:TasksBar;assembly=TasksBar.Core"
                  Title="My Tasks" Height="450" Width="320"
                  WindowStartupLocation="Manual" 
                  ShowInTaskbar="False"
@@ -75,7 +76,7 @@
             </ListView.ItemContainerStyle>
 
             <ListView.ItemTemplate>
-                <DataTemplate DataType="{x:Type local:TaskItem}">
+                <DataTemplate DataType="{x:Type core:TaskItem}">
                     <Border x:Name="TaskCard" Background="Transparent" CornerRadius="6" Padding="10,8" BorderThickness="0" LostFocus="TaskCard_LostFocus">
                         <Grid>
                             <Grid.ColumnDefinitions>

@@ -1,7 +1,6 @@
 ﻿using System.IO;
 
 using System.Text.Json;
-using Wpf.Ui.Controls;
 
 
 namespace TasksBar
@@ -75,7 +74,7 @@ namespace TasksBar
 
     {
 
-        private static readonly string SettingsFile = System.IO.Path.Combine(System.AppContext.BaseDirectory, "config.json");
+        private static string SettingsFile => AppPaths.File("config.json");
 
         public static AppSettings Settings { get; set; } = new AppSettings();
 
@@ -124,6 +123,9 @@ namespace TasksBar
 
 
             File.WriteAllText(SettingsFile, json);
+
+            // Holds the CalDAV app password on Linux (no DPAPI there), so keep it private to this user
+            AppPaths.MakePrivate(SettingsFile);
 
         }
 

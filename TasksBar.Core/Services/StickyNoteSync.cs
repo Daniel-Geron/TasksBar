@@ -6,8 +6,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Ink;
 using TasksBar.Services.Sync;
 
 namespace TasksBar.Services
@@ -40,8 +38,11 @@ namespace TasksBar.Services
 
         private static readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private static readonly TimeSpan PushDelay = TimeSpan.FromSeconds(2);
-        private static System.Windows.Threading.DispatcherTimer? _pushTimer;
-        private static System.Windows.Threading.DispatcherTimer? _pullTimer;
+        private static CancellationTokenSource? _pendingPush;
+        private static bool _pullLoopStarted;
+
+        /// <summary>The app's note windows. Set once at startup by the Windows or Linux app.</summary>
+        public static IStickyNoteHost? Host { get; set; }
         private static readonly TimeSpan PullInterval = TimeSpan.FromMinutes(5);
 
         public static bool IsEnabled => TaskSync.IsEnabled && AppConfig.Settings.SyncStickyNotes;
@@ -64,28 +65,35 @@ namespace TasksBar.Services
         {
             if (!IsEnabled) return;
 
-            if (_pushTimer == null)
-            {
-                _pushTimer = new System.Windows.Threading.DispatcherTimer { Interval = PushDelay };
-                _pushTimer.Tick += async (s, e) =>
-                {
-                    _pushTimer.Stop();
-                    await PushDirtyAsync();
-                };
-            }
+            // Restart the countdown so typing doesn't upload on every keystroke. Called on the UI
+            // thread, so the awaits come back to it (same as the DispatcherTimer this replaced).
+            _pendingPush?.Cancel();
+            var pending = _pendingPush = new CancellationTokenSource();
+            _ = PushAfterDelayAsync(pending.Token);
+        }
 
-            // Restart the countdown so typing doesn't upload on every keystroke
-            _pushTimer.Stop();
-            _pushTimer.Start();
+        private static async Task PushAfterDelayAsync(CancellationToken token)
+        {
+            try { await Task.Delay(PushDelay, token); }
+            catch (TaskCanceledException) { return; }
+            await PushDirtyAsync();
         }
 
         // Picks up edits from other devices while the app keeps running
         private static void EnsurePeriodicPull()
         {
-            if (_pullTimer != null) return;
-            _pullTimer = new System.Windows.Threading.DispatcherTimer { Interval = PullInterval };
-            _pullTimer.Tick += async (s, e) => await SyncAsync();
-            _pullTimer.Start();
+            if (_pullLoopStarted) return;
+            _pullLoopStarted = true;
+            _ = PullLoopAsync();
+        }
+
+        private static async Task PullLoopAsync()
+        {
+            while (true)
+            {
+                await Task.Delay(PullInterval);
+                await SyncAsync();
+            }
         }
 
         // ------------------------------------------------------------------ public entry points
@@ -482,25 +490,15 @@ namespace TasksBar.Services
                 if (imagesArrived || imageRecordsChanged) changed = true;
                 if (!contentChanged && !imagesArrived) continue;
 
-                var window = FindWindow(local);
-                if (window != null)
-                {
-                    window.ReloadFromModel();
-                }
-                else if (isNew && local.OpenOnStartup)
+                if (isNew && local.OpenOnStartup)
                 {
                     // A note arriving from another device opens like it would at startup.
                     // Closed notes that were only edited elsewhere stay closed.
-                    window = new StickyNoteWindow(local);
-                    window.Show();
-
-                    // Cascade new notes in from the top-right corner, sized by the real window
-                    var area = SystemParameters.WorkArea;
-                    window.Left = Math.Max(area.Left, area.Right - window.ActualWidth - 40 - 30 * newCount);
-                    window.Top = area.Top + 40 + 30 * newCount;
-                    local.Left = window.Left;
-                    local.Top = window.Top;
-                    newCount++;
+                    Host?.OpenArrivedNote(local, newCount++);
+                }
+                else
+                {
+                    Host?.ReloadNote(local);
                 }
             }
 
@@ -513,7 +511,7 @@ namespace TasksBar.Services
             foreach (var note in removed)
             {
                 LocalDataManager.ActiveNotes.Remove(note);
-                FindWindow(note)?.Close();
+                Host?.CloseNote(note);
                 changed = true;
             }
 
@@ -573,20 +571,14 @@ namespace TasksBar.Services
             return (downloaded, recordsChanged);
         }
 
-        private static StickyNoteWindow? FindWindow(StickyNoteModel note) =>
-            Application.Current.Windows.OfType<StickyNoteWindow>().FirstOrDefault(w => w.GetModel() == note);
-
         // ------------------------------------------------------------------ payload format
 
+        /// <summary>Whether the drawing data holds any strokes. Only the Windows app can decode the older WPF format.</summary>
         public static bool HasStrokes(string? ink)
         {
             if (string.IsNullOrEmpty(ink)) return false;
-            try
-            {
-                using var ms = new MemoryStream(Convert.FromBase64String(ink));
-                return new StrokeCollection(ms).Count > 0;
-            }
-            catch { return false; }
+            if (NoteInk.IsPortable(ink)) return NoteInk.HasStrokes(ink);
+            return Host?.HasLegacyStrokes(ink) ?? true;
         }
 
         private static string BuildPayload(string text, string ink, bool openOnStartup, string title, string images)

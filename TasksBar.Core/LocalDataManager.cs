@@ -96,8 +96,8 @@ namespace TasksBar
 
     public static class LocalDataManager
     {
-        private static readonly string NotesFile = Path.Combine(AppContext.BaseDirectory, "local_notes.json");
-        private static readonly string ListsFile = Path.Combine(AppContext.BaseDirectory, "local_lists.json");
+        private static string NotesFile => AppPaths.File("local_notes.json");
+        private static string ListsFile => AppPaths.File("local_lists.json");
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions { WriteIndented = true };
 
         // --- LOCAL LISTS ---
@@ -120,7 +120,7 @@ namespace TasksBar
         {
             var invalid = Path.GetInvalidFileNameChars();
             string safe = new string(listId.Select(c => c == ':' || Array.IndexOf(invalid, c) >= 0 ? '_' : c).ToArray());
-            return Path.Combine(AppContext.BaseDirectory, $"local_tasks_{safe}.json");
+            return AppPaths.File($"local_tasks_{safe}.json");
         }
 
         public static void SaveTasks(IEnumerable<TaskItem> tasks, string listId)

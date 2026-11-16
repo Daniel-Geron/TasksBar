@@ -311,10 +311,83 @@ namespace TasksBar
         {
             if (e.ChangedButton == MouseButton.Left)
             {
+                // Double-click toggles full screen, like a normal title bar
+                if (e.ClickCount == 2)
+                {
+                    WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                    e.Handled = true;
+                    return;
+                }
+
+                // A full-screen note only restores once it's actually dragged (so a double-click doesn't restore it early)
+                if (WindowState == WindowState.Maximized)
+                {
+                    _maximizedGrab = e.GetPosition(this);
+                    CaptureMouse();
+                    return;
+                }
+
                 this.DragMove();
                 _model.Left = this.Left;
                 _model.Top = this.Top;
                 LocalDataManager.SaveNotes();
+            }
+        }
+
+        private Point? _maximizedGrab;
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (_maximizedGrab is not Point grab) return;
+
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                _maximizedGrab = null;
+                ReleaseMouseCapture();
+                return;
+            }
+
+            var delta = e.GetPosition(this) - grab;
+            if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+
+            // Pop back to the normal size under the cursor, then keep dragging like a title bar
+            _maximizedGrab = null;
+            ReleaseMouseCapture();
+            RestoreUnderCursor(grab);
+            DragMove();
+            _model.Left = Left;
+            _model.Top = Top;
+            LocalDataManager.SaveNotes();
+        }
+
+        protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+        {
+            base.OnMouseLeftButtonUp(e);
+            if (_maximizedGrab != null)
+            {
+                _maximizedGrab = null;
+                ReleaseMouseCapture();
+            }
+        }
+
+        private void RestoreUnderCursor(Point grabPoint)
+        {
+            double ratioX = ActualWidth > 0 ? grabPoint.X / ActualWidth : 0.5;
+            var screenPoint = PointToScreen(grabPoint);
+            if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
+            {
+                screenPoint = target.TransformFromDevice.Transform(screenPoint);
+            }
+
+            var normal = RestoreBounds;
+            WindowState = WindowState.Normal;
+            if (!normal.IsEmpty)
+            {
+                // Keep the cursor at the same relative spot across the note's width
+                Left = screenPoint.X - normal.Width * ratioX;
+                Top = screenPoint.Y - Math.Min(grabPoint.Y, normal.Height / 2);
             }
         }
 
@@ -365,6 +438,21 @@ namespace TasksBar
                 Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom
             };
 
+            var startupItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Open when TasksBar starts",
+                IsCheckable = true,
+                IsChecked = _model.OpenOnStartup
+            };
+            startupItem.Click += (s, args) =>
+            {
+                _model.OpenOnStartup = startupItem.IsChecked;
+                Services.StickyNoteSync.MarkDirty(_model);
+                NoteStartupChanged?.Invoke(_model);
+            };
+            menu.Items.Add(startupItem);
+            menu.Items.Add(new Separator());
+
             var deleteItem = new System.Windows.Controls.MenuItem
             {
                 Header = "Delete note",
@@ -394,5 +482,8 @@ namespace TasksBar
         }
 
         public static event Action<StickyNoteModel>? NoteDeleted;
+
+        /// <summary>Raised when a note's "open at startup" setting is changed from its own menu.</summary>
+        public static event Action<StickyNoteModel>? NoteStartupChanged;
     }
 }

@@ -21,8 +21,22 @@ namespace TasksBar
             UpdateOpenAllToggle();
 
             // Notes can also be deleted from their own window while this page is open
-            Loaded += (s, e) => StickyNoteWindow.NoteDeleted += OnNoteDeleted;
-            Unloaded += (s, e) => StickyNoteWindow.NoteDeleted -= OnNoteDeleted;
+            Loaded += (s, e) =>
+            {
+                StickyNoteWindow.NoteDeleted += OnNoteDeleted;
+                StickyNoteWindow.NoteStartupChanged += OnNoteStartupChanged;
+            };
+            Unloaded += (s, e) =>
+            {
+                StickyNoteWindow.NoteDeleted -= OnNoteDeleted;
+                StickyNoteWindow.NoteStartupChanged -= OnNoteStartupChanged;
+            };
+        }
+
+        private void OnNoteStartupChanged(StickyNoteModel note)
+        {
+            NotesListView.Items.Refresh();
+            UpdateOpenAllToggle();
         }
 
         // The top switch is on only when every note opens at startup

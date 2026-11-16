@@ -414,25 +414,104 @@
         <!-- Celebration burst when a task is completed (see TaskCompletionEffects) -->
         <Canvas x:Name="EffectsLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="10"/>
 
-        <!-- Custom Dynamic Toast Notification -->
-        <Border x:Name="CustomToastPopup" Grid.RowSpan="4" VerticalAlignment="Bottom" Margin="0,0,0,20"
-                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="16,12"
-                Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Center">
+        <!-- Celebration toast (animated in ShowCustomToast). Translucent so the window's acrylic shows through, tinted with the accent color -->
+        <Grid x:Name="CustomToastPopup" Grid.RowSpan="4" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,18"
+              MinWidth="236" MaxWidth="286" Opacity="0" IsHitTestVisible="False" RenderTransformOrigin="0.5,1">
+            <Grid.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="ToastScale" ScaleX="0.85" ScaleY="0.85"/>
+                    <TranslateTransform x:Name="ToastTransform" Y="24"/>
+                </TransformGroup>
+            </Grid.RenderTransform>
 
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="ToastTransform" Y="20"/>
-            </Border.RenderTransform>
+            <!-- Soft accent glow that flares behind the card -->
+            <Border x:Name="ToastGlow" CornerRadius="14" Margin="-4" Opacity="0" Background="{DynamicResource AccentFillColorDefaultBrush}">
+                <Border.Effect>
+                    <BlurEffect Radius="22"/>
+                </Border.Effect>
+            </Border>
 
-            <StackPanel Orientation="Horizontal">
-                <ui:SymbolIcon Symbol="Checkmark24" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,12,0"/>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="ToastHeader" Text="Task Completed" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                    <TextBlock x:Name="ToastTaskTitle" Text="Task title here" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,2,0,0"/>
+            <!-- Frosted base: mostly opaque for readability, but lets the acrylic through -->
+            <Border CornerRadius="10" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" Opacity="0.9"/>
+            <!-- Accent tint, set from code so it follows the accent color -->
+            <Border x:Name="ToastTint" CornerRadius="10"/>
+            <!-- Shine that sweeps across once when the toast appears -->
+            <Border x:Name="ToastShine" CornerRadius="10">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0.4">
+                        <LinearGradientBrush.RelativeTransform>
+                            <TranslateTransform x:Name="ToastShineOffset" X="-1.2"/>
+                        </LinearGradientBrush.RelativeTransform>
+                        <GradientStop Color="#00FFFFFF" Offset="0.3"/>
+                        <GradientStop Color="#40FFFFFF" Offset="0.5"/>
+                        <GradientStop Color="#00FFFFFF" Offset="0.7"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- Outline (accent-tinted, set from code) -->
+            <Border x:Name="ToastOutline" CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"/>
+
+            <!-- Time-left bar -->
+            <Border CornerRadius="0,0,10,10" VerticalAlignment="Bottom" Height="3" Margin="10,0,10,1" ClipToBounds="True">
+                <Rectangle x:Name="ToastProgress" Fill="{DynamicResource AccentFillColorDefaultBrush}" RadiusX="1.5" RadiusY="1.5"
+                           Opacity="0.85" RenderTransformOrigin="0,0.5">
+                    <Rectangle.RenderTransform>
+                        <ScaleTransform x:Name="ToastProgressScale" ScaleX="1"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+            </Border>
+
+            <Grid Margin="14,11,14,13">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Animated check badge -->
+                <Grid x:Name="ToastIcon" Width="30" Height="30" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <Ellipse x:Name="ToastIconRing" Stroke="{DynamicResource AccentFillColorDefaultBrush}" StrokeThickness="2"
+                             Opacity="0" RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <ScaleTransform x:Name="ToastIconRingScale" ScaleX="1" ScaleY="1"/>
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                    <Ellipse x:Name="ToastIconCircle" Fill="{DynamicResource AccentFillColorDefaultBrush}" RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <ScaleTransform x:Name="ToastIconScale" ScaleX="0" ScaleY="0"/>
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                    <Path x:Name="ToastCheck" Data="M 9,15.5 L 13.2,19.5 L 21,11" Stroke="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                          StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          StrokeDashArray="8 8" StrokeDashOffset="8"/>
+                </Grid>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="ToastHeader" Text="Task Completed" FontWeight="SemiBold" FontSize="14"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform x:Name="ToastHeaderShift"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <TextBlock x:Name="ToastTaskTitle" Text="Task title here" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform x:Name="ToastTitleShift"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
                 </StackPanel>
-            </StackPanel>
-        </Border>
+
+                <!-- Combo counter when several tasks are done in a row -->
+                <Border x:Name="ToastCombo" Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" CornerRadius="10" Padding="8,2"
+                        Background="{DynamicResource AccentFillColorDefaultBrush}" Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">
+                    <Border.RenderTransform>
+                        <ScaleTransform x:Name="ToastComboScale" ScaleX="1" ScaleY="1"/>
+                    </Border.RenderTransform>
+                    <TextBlock x:Name="ToastComboText" Text="x2" FontWeight="Bold" FontSize="12"
+                               Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"/>
+                </Border>
+            </Grid>
+        </Grid>
 
     </Grid>
 </ui:FluentWindow>

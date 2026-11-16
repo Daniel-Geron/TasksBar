@@ -766,7 +766,7 @@ namespace TasksBar
                 }
             }
 
-            ShowCustomToast(task.Title, $"Moved to {destinationTitle}");
+            ShowCustomToast(task.Title, $"Moved to {destinationTitle}", celebrate: false);
         }
 
         // --- WINDOW MANAGEMENT & CALCULATED ANIMATIONS ---
@@ -1094,33 +1094,162 @@ namespace TasksBar
             });
         }
         private int _toastCounter = 0;
-
-        private async void ShowCustomToast(string title, string header = "Task Completed")
+        private int _comboCount = 0;
+        private DateTime _lastCompletionToast = DateTime.MinValue;
+        private static readonly Random _toastRandom = new Random();
+        private static readonly string[] _cheers =
         {
-            ToastHeader.Text = header;
-            ToastTaskTitle.Text = title;
+            "Task completed", "Nice work!", "Done!", "Crushed it!", "One less thing!", "Great job!", "Nailed it!", "Checked off!"
+        };
+
+        /// <summary>
+        /// Shows the toast at the bottom of the flyout. Completions (<paramref name="celebrate"/>) get the full
+        /// treatment: springy pop, check badge drawing in, a shine sweep, confetti and a combo counter when
+        /// several tasks are finished in a row. Other messages (like "Moved to...") use a calmer version.
+        /// </summary>
+        private async void ShowCustomToast(string title, string header = null, bool celebrate = true)
+        {
             _toastCounter++;
             int currentToast = _toastCounter;
+            var accent = (TryFindResource("AccentFillColorDefaultBrush") as SolidColorBrush)?.Color ?? Color.FromRgb(0x00, 0x78, 0xD4);
 
-            // 1. Slide up and Fade in
-            var slideUp = new DoubleAnimation(20, 0, TimeSpan.FromMilliseconds(250)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250));
+            if (celebrate)
+            {
+                var now = DateTime.Now;
+                _comboCount = (now - _lastCompletionToast).TotalSeconds < 10 ? _comboCount + 1 : 1;
+                _lastCompletionToast = now;
+            }
+            bool combo = celebrate && _comboCount >= 2;
 
-            ToastTransform.BeginAnimation(TranslateTransform.YProperty, slideUp);
-            CustomToastPopup.BeginAnimation(OpacityProperty, fadeIn);
+            ToastHeader.Text = header ?? (_comboCount switch
+            {
+                2 => "Double!",
+                3 => "Triple!",
+                >= 4 => "On a roll!",
+                _ => _cheers[_toastRandom.Next(_cheers.Length)]
+            });
+            ToastTaskTitle.Text = title;
+            ToastCombo.Visibility = combo ? Visibility.Visible : Visibility.Collapsed;
+            ToastComboText.Text = "×" + _comboCount;
 
-            // 2. Wait 3 seconds
-            await Task.Delay(3000);
+            // Accent tint and outline so the card belongs to the (acrylic) window instead of being a dark slab
+            ToastTint.Background = new LinearGradientBrush(
+                TaskCompletionEffects.WithAlpha(accent, 0x50), TaskCompletionEffects.WithAlpha(accent, 0x0C), new Point(0, 0), new Point(1, 1));
+            ToastOutline.BorderBrush = new LinearGradientBrush(
+                TaskCompletionEffects.WithAlpha(accent, 0xC8), TaskCompletionEffects.WithAlpha(accent, 0x30), new Point(0, 0), new Point(1, 1));
 
-            // 3. Only fade out if another task hasn't been completed while we were waiting!
+            bool wasVisible = CustomToastPopup.Opacity > 0.5;
+
+            // Card: springy pop in, or a little bump if it's already showing
+            if (!wasVisible)
+            {
+                CustomToastPopup.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, Ms(160)));
+                ToastTransform.BeginAnimation(TranslateTransform.YProperty,
+                    new DoubleAnimation(28, 0, Ms(480)) { EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.55 } });
+                AnimateScale(ToastScale, new DoubleAnimation(0.72, 1, Ms(650))
+                {
+                    EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 6 }
+                });
+            }
+            else
+            {
+                CustomToastPopup.BeginAnimation(OpacityProperty, new DoubleAnimation(1, Ms(120)));
+                ToastTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, Ms(200)));
+                var bump = new DoubleAnimationUsingKeyFrames();
+                bump.KeyFrames.Add(new EasingDoubleKeyFrame(1.09, KeyTime.FromTimeSpan(Ms(90)), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+                bump.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(Ms(520)),
+                    new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 5 }));
+                AnimateScale(ToastScale, bump);
+            }
+
+            // Glow flare behind the card
+            var glow = new DoubleAnimationUsingKeyFrames();
+            glow.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+            glow.KeyFrames.Add(new EasingDoubleKeyFrame(celebrate ? (combo ? 0.75 : 0.55) : 0.25, KeyTime.FromTimeSpan(Ms(180)),
+                new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+            glow.KeyFrames.Add(new EasingDoubleKeyFrame(celebrate ? 0.12 : 0, KeyTime.FromTimeSpan(Ms(1100)),
+                new CubicEase { EasingMode = EasingMode.EaseInOut }));
+            ToastGlow.BeginAnimation(OpacityProperty, glow);
+
+            // Shine sweep
+            ToastShineOffset.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(-1.2, 1.2, Ms(750))
+            {
+                BeginTime = Ms(170),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+            });
+
+            // Check badge: circle springs in, check draws, ring ripples out
+            AnimateScale(ToastIconScale, new DoubleAnimation(0, 1, Ms(550))
+            {
+                BeginTime = Ms(70),
+                EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 1, Springiness = 4 }
+            });
+            ToastCheck.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, new DoubleAnimation(8, 0, Ms(260))
+            {
+                BeginTime = Ms(240),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+            AnimateScale(ToastIconRingScale, new DoubleAnimation(1, 2.1, Ms(650))
+            {
+                BeginTime = Ms(220),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+            ToastIconRing.BeginAnimation(OpacityProperty, new DoubleAnimation(0.9, 0, Ms(650)) { BeginTime = Ms(220) });
+
+            // Text slides in, staggered
+            SlideInText(ToastHeader, ToastHeaderShift, Ms(110));
+            SlideInText(ToastTaskTitle, ToastTitleShift, Ms(180));
+
+            if (combo)
+            {
+                AnimateScale(ToastComboScale, new DoubleAnimation(0, 1, Ms(600))
+                {
+                    BeginTime = Ms(280),
+                    EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 4 }
+                });
+            }
+
+            // Time-left bar
+            const int holdMs = 3200;
+            ToastProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, 0, Ms(holdMs)) { BeginTime = Ms(250) });
+
+            // Confetti out of the badge, more for bigger combos
+            int waited = 0;
+            if (celebrate)
+            {
+                await Task.Delay(230);
+                waited = 230;
+                if (currentToast != _toastCounter) return;
+                var center = ToastIcon.TranslatePoint(new Point(ToastIcon.ActualWidth / 2, ToastIcon.ActualHeight / 2), EffectsLayer);
+                TaskCompletionEffects.PlayConfetti(EffectsLayer, center, accent, 20 + Math.Min(_comboCount - 1, 4) * 7);
+            }
+
+            await Task.Delay(holdMs + 250 - waited);
+
+            // Only hide if nothing else was shown in the meantime
             if (currentToast == _toastCounter)
             {
-                var slideDown = new DoubleAnimation(0, 20, TimeSpan.FromMilliseconds(250)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-                var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(250));
-
-                ToastTransform.BeginAnimation(TranslateTransform.YProperty, slideDown);
-                CustomToastPopup.BeginAnimation(OpacityProperty, fadeOut);
+                var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };
+                ToastTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 14, Ms(230)) { EasingFunction = easeIn });
+                AnimateScale(ToastScale, new DoubleAnimation(1, 0.9, Ms(230)) { EasingFunction = easeIn });
+                CustomToastPopup.BeginAnimation(OpacityProperty, new DoubleAnimation(0, Ms(230)));
+                ToastGlow.BeginAnimation(OpacityProperty, new DoubleAnimation(0, Ms(200)));
             }
+        }
+
+        private static TimeSpan Ms(double ms) => TimeSpan.FromMilliseconds(ms);
+
+        private static void AnimateScale(ScaleTransform scale, AnimationTimeline animation)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, animation);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
+        }
+
+        private static void SlideInText(UIElement text, TranslateTransform shift, TimeSpan delay)
+        {
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            shift.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(12, 0, Ms(320)) { BeginTime = delay, EasingFunction = ease });
+            text.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, Ms(260)) { BeginTime = delay });
         }
 
     }

@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             x:Class="TasksBar.Linux.Views.Settings.ListsPage">
+    <ScrollViewer>
+        <StackPanel MaxWidth="800" Margin="20,10,20,30">
+            <TextBlock Classes="pageTitle" Text="Task Lists"/>
+
+            <!-- Local lists can be created here; synced lists come from the sync service -->
+            <StackPanel x:Name="CreateListPanel" Orientation="Horizontal" Spacing="8" Margin="0,0,0,16">
+                <TextBox x:Name="NewListNameInput" Watermark="New local list name..." Width="250"/>
+                <Button Classes="accent" Click="CreateList_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ic:SymbolIcon Symbol="Add" FontSize="16" Width="16" Height="16"/>
+                        <TextBlock Text="Create"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" FontSize="13" Opacity="0.6" IsVisible="False" Margin="0,0,0,8"/>
+            <StackPanel x:Name="ListsPanel"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

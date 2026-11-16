@@ -1,0 +1,147 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             xmlns:s="using:TasksBar.Linux.Views.Settings"
+             x:Class="TasksBar.Linux.Views.Settings.BehaviorPage">
+    <ScrollViewer>
+        <StackPanel MaxWidth="800" Margin="20,10,20,30">
+            <TextBlock Classes="pageTitle" Text="Behavior &amp; Sync"/>
+
+            <s:SettingsCard Icon="CloudArrowUp" Header="Task Sync" Description="Sync with Google Tasks or Tasks.org">
+                <ComboBox x:Name="SyncProviderBox" MinWidth="200" SelectionChanged="SyncProvider_Changed">
+                    <ComboBoxItem Content="Off (this PC only)" Tag="Local"/>
+                    <ComboBoxItem Content="Google Tasks" Tag="Google"/>
+                    <ComboBoxItem Content="Tasks.org / CalDAV" Tag="CalDav"/>
+                </ComboBox>
+            </s:SettingsCard>
+
+            <!-- Google account -->
+            <s:SettingsCard x:Name="GooglePanel" Icon="Person" Header="Google Account" Description="Sign in once; TasksBar remembers it" IsVisible="False">
+                <Button x:Name="GoogleLoginButton" Click="LoginGoogle_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ic:SymbolIcon Symbol="Person" FontSize="16" Width="16" Height="16"/>
+                        <TextBlock Text="Log in to Google"/>
+                    </StackPanel>
+                </Button>
+            </s:SettingsCard>
+
+            <!-- Tasks.org / CalDAV account -->
+            <Border x:Name="CalDavPanel" Classes="card" IsVisible="False">
+                <StackPanel Margin="0,4">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+                        <ic:SymbolIcon Symbol="PlugConnected" FontSize="24" Width="24" Height="24" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Tasks.org / CalDAV Account" FontSize="14" FontWeight="Medium"/>
+                            <TextBlock x:Name="CalDavStatusText" Text="Not connected" FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ComboBox x:Name="CalDavServerTypeBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center" SelectionChanged="CalDavServerType_Changed">
+                            <ComboBoxItem Content="Tasks.org Cloud"/>
+                            <ComboBoxItem Content="Other CalDAV server"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <StackPanel x:Name="TasksOrgHelp" Margin="0,0,0,12">
+                        <TextBlock FontSize="12" Opacity="0.75" TextWrapping="Wrap"
+                                   Text="Needs a Tasks.org subscription with Tasks.org Cloud sync. Create an app password in the Tasks.org app (Settings → your Tasks.org account → App passwords) or on the Tasks.org website, then copy the username and password it shows below. They're only shown once."/>
+                        <HyperlinkButton Content="tasks.org/account" NavigateUri="https://tasks.org/account" Padding="0" Margin="0,4,0,0" FontSize="12"/>
+                    </StackPanel>
+                    <TextBlock x:Name="CalDavHelp" FontSize="12" Opacity="0.75" TextWrapping="Wrap" Margin="0,0,0,12" IsVisible="False"
+                               Text="Works with Nextcloud, Fastmail, iCloud, Radicale and other servers that store tasks over CalDAV. The server address can be the site's root (e.g. https://cloud.example.com) or your CalDAV URL. If your provider offers app passwords, use one here."/>
+
+                    <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto">
+                        <TextBlock x:Name="CalDavServerLabel" Text="Server" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBox x:Name="CalDavServerBox" Grid.Column="1" Watermark="https://cloud.example.com" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="1" Text="Username" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBox x:Name="CalDavUserBox" Grid.Row="1" Grid.Column="1" Watermark="Username" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="2" Text="App password" VerticalAlignment="Center"/>
+                        <TextBox x:Name="CalDavPasswordBox" Grid.Row="2" Grid.Column="1" Watermark="Password" PasswordChar="•" Classes="revealPasswordButton"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+                        <Button x:Name="CalDavDisconnectButton" Content="Disconnect" Click="CalDavDisconnect_Click" IsVisible="False"/>
+                        <Button x:Name="CalDavConnectButton" Classes="accent" Click="CalDavConnect_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ic:SymbolIcon Symbol="PlugConnected" FontSize="16" Width="16" Height="16"/>
+                                <TextBlock x:Name="CalDavConnectText" Text="Connect"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <s:SettingsCard Icon="Note" Header="Sync Sticky Notes"
+                            Description="Back up notes to a hidden list in your synced account (requires Task Sync)">
+                <ToggleSwitch x:Name="NoteSyncToggle" IsCheckedChanged="Setting_Changed"/>
+            </s:SettingsCard>
+
+            <s:SettingsCard x:Name="NewNoteCard" Icon="NoteAdd" Header="New Sticky Note Shortcut" Description="Works from any app">
+                <StackPanel x:Name="NewNoteRecorder" Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="NewNoteHotkeyBox" Width="180" IsReadOnly="True" Watermark="Click, then press keys" Tag="NewNote"/>
+                    <Button Tag="NewNote" Click="ClearHotkey_Click" ToolTip.Tip="Remove shortcut">
+                        <ic:SymbolIcon Symbol="Dismiss" FontSize="16" Width="16" Height="16"/>
+                    </Button>
+                </StackPanel>
+            </s:SettingsCard>
+
+            <s:SettingsCard x:Name="OpenAllCard" Icon="WindowMultiple" Header="Open All Sticky Notes Shortcut" Description="Shows every note on top">
+                <StackPanel x:Name="OpenAllRecorder" Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="OpenAllNotesHotkeyBox" Width="180" IsReadOnly="True" Watermark="Click, then press keys" Tag="OpenAllNotes"/>
+                    <Button Tag="OpenAllNotes" Click="ClearHotkey_Click" ToolTip.Tip="Remove shortcut">
+                        <ic:SymbolIcon Symbol="Dismiss" FontSize="16" Width="16" Height="16"/>
+                    </Button>
+                </StackPanel>
+            </s:SettingsCard>
+
+            <!-- Desktops that don't let apps add shortcuts: show the commands to bind instead -->
+            <Border x:Name="ManualShortcutsPanel" Classes="card" IsVisible="False">
+                <StackPanel Margin="0,4" Spacing="6">
+                    <TextBlock Text="Sticky Note Shortcuts" FontSize="14" FontWeight="Medium"/>
+                    <TextBlock FontSize="12" Opacity="0.75" TextWrapping="Wrap"
+                               Text="Your desktop doesn't let apps add keyboard shortcuts themselves. Add them in your system's keyboard shortcut settings (on KDE: System Settings → Keyboard → Shortcuts → Add New → Command or Script) with these commands:"/>
+                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
+                        <TextBlock Text="New sticky note" VerticalAlignment="Center" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBox x:Name="NewNoteCommandBox" Grid.Column="1" IsReadOnly="True" FontFamily="monospace" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBlock Grid.Row="1" Text="Open all notes" VerticalAlignment="Center" FontSize="12"/>
+                        <TextBox x:Name="OpenAllCommandBox" Grid.Row="1" Grid.Column="1" IsReadOnly="True" FontFamily="monospace" FontSize="12"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <s:SettingsCard x:Name="StartupCard" Icon="Rocket" Header="Launch on Startup" Description="Start TasksBar automatically when you log in">
+                <ToggleSwitch x:Name="StartupToggle" IsCheckedChanged="Setting_Changed"/>
+            </s:SettingsCard>
+
+            <s:SettingsCard x:Name="HoverSoundCard" Icon="Speaker2" Header="Hover Sound" Description="Plays when hovering a task's check circle">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Click="PreviewHoverSound_Click" ToolTip.Tip="Preview">
+                        <ic:SymbolIcon Symbol="Play" FontSize="16" Width="16" Height="16"/>
+                    </Button>
+                    <Button Click="BrowseHoverSound_Click" Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ic:SymbolIcon Symbol="FolderOpen" FontSize="16" Width="16" Height="16"/>
+                            <TextBlock Text="Choose Sound"/>
+                        </StackPanel>
+                    </Button>
+                    <ToggleSwitch x:Name="HoverSoundToggle" IsCheckedChanged="Setting_Changed"/>
+                </StackPanel>
+            </s:SettingsCard>
+
+            <s:SettingsCard x:Name="ClickSoundCard" Icon="Speaker2" Header="Click Sound" Description="Plays when clicking a task's check circle">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Click="PreviewClickSound_Click" ToolTip.Tip="Preview">
+                        <ic:SymbolIcon Symbol="Play" FontSize="16" Width="16" Height="16"/>
+                    </Button>
+                    <Button Click="BrowseClickSound_Click" Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ic:SymbolIcon Symbol="FolderOpen" FontSize="16" Width="16" Height="16"/>
+                            <TextBlock Text="Choose Sound"/>
+                        </StackPanel>
+                    </Button>
+                    <ToggleSwitch x:Name="ClickSoundToggle" IsCheckedChanged="Setting_Changed"/>
+                </StackPanel>
+            </s:SettingsCard>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

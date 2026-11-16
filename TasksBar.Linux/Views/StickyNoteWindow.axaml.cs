@@ -440,6 +440,39 @@ namespace TasksBar.Linux.Views
             menu.Open(NoteMenuButton);
         }
 
+        /// <summary>Opens a brand new note to the left of the flyout, ready to type in.</summary>
+        public static StickyNoteWindow OpenNew(Window? flyout)
+        {
+            double left = 100, top = 100;
+            if (flyout != null)
+            {
+                double scaling = (flyout.Screens.ScreenFromWindow(flyout) ?? flyout.Screens.Primary)?.Scaling ?? 1;
+                left = flyout.Position.X / scaling - 260;
+                top = flyout.Position.Y / scaling;
+            }
+            var note = new StickyNoteWindow(left, top);
+            note.Show();
+            note.Activate();
+            note.NoteTextBox.Focus();
+            return note;
+        }
+
+        /// <summary>Opens every note (including closed ones) and brings them all in front of other apps.</summary>
+        public static void OpenAll()
+        {
+            foreach (var note in LocalDataManager.ActiveNotes.ToList())
+            {
+                var window = Find(note);
+                if (window == null)
+                {
+                    window = new StickyNoteWindow(note);
+                    window.Show();
+                }
+                if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+            }
+            foreach (var window in OpenWindows.ToList()) window.Activate();
+        }
+
         /// <summary>Removes a note for good: locally, from the sync service, and closes its window.</summary>
         public static void DeleteNote(StickyNoteModel note)
         {

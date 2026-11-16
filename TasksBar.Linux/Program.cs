@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 
@@ -7,6 +8,9 @@ namespace TasksBar.Linux
 {
     internal static class Program
     {
+        /// <summary>A command TasksBar was started with (like --new-note), run once it's up.</summary>
+        public static string? StartupCommand { get; private set; }
+
         [STAThread]
         public static void Main(string[] args)
         {
@@ -19,6 +23,10 @@ namespace TasksBar.Linux
                       : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config"),
                   "TasksBar");
             Directory.CreateDirectory(AppPaths.DataDirectory);
+
+            // Already running: hand the command over (or just show the flyout) instead of starting twice
+            StartupCommand = args.FirstOrDefault(a => Services.InstanceChannel.Commands.Contains(a));
+            if (Services.InstanceChannel.TrySend(StartupCommand ?? Services.InstanceChannel.Show)) return;
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
         }

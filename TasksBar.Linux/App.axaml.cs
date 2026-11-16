@@ -28,7 +28,17 @@ namespace TasksBar.Linux
                 PlatformSettings.ColorValuesChanged += (s, e) => ApplyAccent();
 
             _flyout = new FlyoutWindow();
-            _flyout.ShowFlyout();
+
+            // Commands from `tasksbar --new-note` etc. (desktop shortcuts, the app menu, a second launch)
+            Services.InstanceChannel.CommandReceived += RunCommand;
+            Services.InstanceChannel.StartListening();
+            Services.Autostart.Refresh();
+            System.Threading.Tasks.Task.Run(Services.GlobalShortcuts.Initialize);
+
+            if (Program.StartupCommand is { } command && command != Services.InstanceChannel.Show && command != Services.InstanceChannel.Toggle)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => RunCommand(command), Avalonia.Threading.DispatcherPriority.Background);
+            else
+                _flyout.ShowFlyout();
 
             base.OnFrameworkInitializationCompleted();
         }
@@ -72,8 +82,16 @@ namespace TasksBar.Linux
 
         private void TrayIcon_Clicked(object? sender, EventArgs e) => _flyout?.ToggleFlyout();
 
+        private void RunCommand(string command)
+        {
+            if (command == Services.InstanceChannel.Show) _flyout?.ShowFlyout();
+            else if (command == Services.InstanceChannel.Toggle) _flyout?.ToggleFlyout();
+            else Services.GlobalShortcuts.RunAction(command);
+        }
+
         public void Quit()
         {
+            Services.InstanceChannel.Stop();
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
         }
     }

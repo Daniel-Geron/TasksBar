@@ -5,7 +5,7 @@
 
 
 ## The Tasks App That Is in Your Taskbar
-TasksBar is a lightweight, beautifully native Tasks widget for Windows. 
+TasksBar is a lightweight, beautifully native Tasks widget for Windows, and now [Linux](#-linux-preview) too.
 
 <img width="658" height="762" alt="Recording 2026-11-13 145500" src="https://github.com/user-attachments/assets/b0426097-40e1-409b-bd14-0c9b25d63d74" />
 
@@ -23,10 +23,14 @@ Built with WPF and the modern Windows 11 design language, it lives quietly in yo
   * **Any CalDAV server:** Nextcloud, Fastmail, iCloud, Radicale and other servers that store tasks over CalDAV work too.
   * **Or none at all:** Keep everything locally on your PC.
 * **Task Management:** Add, edit, complete and delete tasks, and move them between lists with **Move to...**. Due dates, reminders and anything else set in other apps are left untouched.
+* **Drag to Reorder:** Pick up any task and drop it where you want it, like moving apps on your phone. The new order syncs to Google Tasks and Tasks.org.
+* **Keyboard Friendly:** Press Enter to add the next task, and use the Up/Down arrows to move between a task's title, its details and the tasks around it.
 * **Sticky Notes:**
   * Write, draw, and paste images (like screenshots) straight into a note, then move, resize and rotate them.
   * Notes sync across your devices through your Google or Tasks.org account, including drawings and images.
+  * Give notes a title (or let TasksBar name them after their first line, drawing or images) and rename them from Settings.
   * Choose which notes open when TasksBar starts, from Settings or from each note's ⋯ menu.
+  * Drawings use a format shared by the Windows and Linux versions, so a note drawn on one shows up on the other.
   * System-wide keyboard shortcuts to create a new note or open all notes from any app.
 * **Auto-Startup:** Option to register directly with the Windows Registry to launch silently on boot.
 * **Satisfying UX:** Bouncy, custom-built animations for task completion: a glowing check circle, a particle burst, and a celebration toast with confetti and combos when you finish several tasks in a row.
@@ -86,15 +90,57 @@ Same as above, but choose `Other CalDAV server` and enter your server's address 
 
 Note: For security reasons, every once in a while Google will prompt you to log in again.
 
+### Updating from 1.2 or older
+
+Starting with this version, sticky note drawings are saved in a new format that both the Windows and Linux versions can read. The first time you start the new version, TasksBar converts your existing drawings and syncs them once. If you use TasksBar on several PCs, update all of them: older versions can't read the new format and show those drawings as empty.
+
+
+## 🐧 Linux (Preview)
+
+TasksBar runs on Linux too (Ubuntu with GNOME, and KDE Plasma), with the same look and behavior as on Windows. It's built with [Avalonia](https://avaloniaui.net/) and shares all of its sync and data code with the Windows app, so tasks and sticky notes, including drawings and images, move freely between your Windows and Linux machines.
+
+Everything from the Windows version is there: the flyout with all its animations, drag to reorder and keyboard navigation; sticky notes with drawings and images; the Settings window (sync, appearance, notes, lists); sticky note shortcuts; hover and click sounds; and launching when you log in. The only Windows-only feature is the Stream Deck plugin.
+
+### Installing on Linux
+* **Ubuntu, Debian, Mint, Pop!_OS, KDE neon:** download `tasksbar_<version>_amd64.deb` from [Releases](https://github.com/Daniel-Geron/TasksBar/releases/latest) and open it, or run `sudo apt install ./tasksbar_<version>_amd64.deb`.
+* **Other distributions:** download `tasksbar-<version>-linux-x64.tar.gz`, unpack it anywhere and run `./tasksbar/install.sh` to add TasksBar to your app menu (no root needed).
+
+Then start **TasksBar** from your app menu. It lives in the system tray: click the icon to open your tasks. On Ubuntu the tray works out of the box; on other GNOME desktops you may need the *AppIndicator* extension.
+
+### Linux notes
+* Settings, tasks and notes are kept in `~/.config/TasksBar`. For Google sync, put `credentials.json` there.
+* **Sticky note shortcuts:** on GNOME (including Ubuntu), TasksBar adds them to GNOME's keyboard shortcuts for you, so they work on Wayland too. On other X11 desktops they're registered directly. On KDE Plasma with Wayland, Settings shows the commands to bind in **System Settings → Keyboard → Shortcuts**.
+* **Commands:** `tasksbar --new-note`, `tasksbar --open-notes` and `tasksbar --toggle` act on the running TasksBar, handy for your own shortcuts or scripts. Right-clicking TasksBar in your dock or app menu also offers *New Sticky Note* and *Open All Sticky Notes*.
+* Sounds are played with `pw-play` (PipeWire) or `paplay` (PulseAudio), which desktop installs already have.
+
 
 
 ## Building Project 
 ### Prerequisites
 To build and run this project, you will need:
 * Visual Studio 2022 (or newer)
-* [.NET 8.0 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
+* [.NET 8.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
 
 
 Clone this repository to your local machine:
    ```bash
    git clone https://github.com/Daniel-Geron/TasksBar.git
+   ```
+
+The solution has three projects:
+* **TasksBar** – the Windows app (WPF).
+* **TasksBar.Linux** – the Linux app (Avalonia).
+* **TasksBar.Core** – everything the two share: settings, local data, Google Tasks and CalDAV sync, and sticky note sync.
+
+### Building for Linux
+
+The Linux app can be built on Windows or Linux. This makes a self-contained build that doesn't need .NET installed on the Linux machine:
+   ```bash
+   dotnet publish TasksBar.Linux -c Release -r linux-x64 --self-contained -o publish/linux-x64
+   ```
+Copy the `publish/linux-x64` folder to your Linux machine and run `./tasksbar`. It needs `libice6` and `libsm6`, which every Ubuntu and KDE desktop already has (on a minimal system: `sudo apt install libice6 libsm6`).
+
+To build the release packages (`.deb` and `.tar.gz`) from that folder, run this on Linux or in WSL (it needs `dpkg-deb`, which Debian and Ubuntu have):
+   ```bash
+   bash packaging/linux/make-packages.sh publish/linux-x64 1.3.0 publish
+   ```

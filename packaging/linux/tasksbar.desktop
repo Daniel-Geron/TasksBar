@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Application
+Name=TasksBar
+GenericName=Tasks and Sticky Notes
+Comment=Your Google Tasks / Tasks.org tasks and sticky notes, one click away
+Exec=tasksbar
+Icon=tasksbar
+Terminal=false
+Categories=Utility;Office;
+Keywords=tasks;todo;notes;sticky;google;caldav;
+StartupNotify=false
+Actions=NewNote;OpenNotes;
+
+[Desktop Action NewNote]
+Name=New Sticky Note
+Exec=tasksbar --new-note
+
+[Desktop Action OpenNotes]
+Name=Open All Sticky Notes
+Exec=tasksbar --open-notes

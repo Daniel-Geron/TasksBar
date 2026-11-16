@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="using:TasksBar.Linux.Views.Settings"
+             x:Class="TasksBar.Linux.Views.Settings.AppearancePage">
+    <ScrollViewer>
+        <StackPanel MaxWidth="800" Margin="20,10,20,30">
+            <TextBlock Classes="pageTitle" Text="Appearance &amp; Layout"/>
+
+            <TextBlock Classes="section" Text="Visuals"/>
+            <s:SettingsCard Icon="PaintBucket" Header="Window Backdrop"
+                            Description="Use an Acrylic blur effect (where your desktop can blur behind windows)">
+                <ToggleSwitch x:Name="AcrylicToggle" IsCheckedChanged="Setting_Changed"/>
+            </s:SettingsCard>
+            <s:SettingsCard Icon="Color" Header="Application Theme" Description="Override your desktop's theme" Margin="0,0,0,24">
+                <ComboBox x:Name="ThemeComboBox" Width="140" SelectionChanged="Setting_Changed">
+                    <ComboBoxItem Content="System Default"/>
+                    <ComboBoxItem Content="Light"/>
+                    <ComboBoxItem Content="Dark"/>
+                </ComboBox>
+            </s:SettingsCard>
+
+            <TextBlock Classes="section" Text="Widget Layout"/>
+            <s:SettingsCard Icon="LockClosed" Header="Lock Position" Description="Prevent the widget from being dragged">
+                <ToggleSwitch x:Name="LockToggle" IsCheckedChanged="Setting_Changed"/>
+            </s:SettingsCard>
+            <s:SettingsCard Icon="ArrowMove" Header="Default Location" Description="Where the widget snaps to on the screen">
+                <ComboBox x:Name="PositionComboBox" Width="150" SelectionChanged="Setting_Changed">
+                    <ComboBoxItem Content="Top Left"/>
+                    <ComboBoxItem Content="Top Center"/>
+                    <ComboBoxItem Content="Top Right"/>
+                    <ComboBoxItem Content="Bottom Left"/>
+                    <ComboBoxItem Content="Bottom Center"/>
+                    <ComboBoxItem Content="Bottom Right"/>
+                </ComboBox>
+            </s:SettingsCard>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

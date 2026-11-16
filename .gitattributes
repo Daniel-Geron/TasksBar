@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Linux packaging files must keep Unix line endings, even when checked out on Windows
+*.sh text eol=lf
+*.desktop text eol=lf

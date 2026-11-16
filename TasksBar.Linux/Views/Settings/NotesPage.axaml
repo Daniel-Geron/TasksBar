@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="using:TasksBar.Linux.Views.Settings"
+             x:Class="TasksBar.Linux.Views.Settings.NotesPage">
+    <ScrollViewer>
+        <StackPanel MaxWidth="800" Margin="20,10,20,30">
+            <TextBlock Classes="pageTitle" Text="Manage Notes"/>
+
+            <s:SettingsCard x:Name="OpenAllCard" Icon="Rocket" Header="Open Notes When TasksBar Starts" Margin="0,0,0,16">
+                <ToggleSwitch x:Name="OpenAllToggle" IsCheckedChanged="OpenAllToggle_Changed"/>
+            </s:SettingsCard>
+
+            <TextBlock x:Name="EmptyText" Text="No sticky notes yet. Create one with the note button in TasksBar." FontSize="13" Opacity="0.6" IsVisible="False"/>
+            <StackPanel x:Name="NotesList"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

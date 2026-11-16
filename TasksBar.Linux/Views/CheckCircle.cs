@@ -122,6 +122,7 @@ namespace TasksBar.Linux.Views
         {
             base.OnPointerEntered(e);
             _hovering = true;
+            Services.TaskSounds.PlayHover();
 
             _controlScale.Scale(1.2, 350, Ease.ElasticOut(1, 4));
             _hoverRing.Opacity(1, 150);
@@ -158,6 +159,7 @@ namespace TasksBar.Linux.Views
             base.OnPointerPressed(e);
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             e.Handled = true;
+            Services.TaskSounds.PlayClick();
 
             _controlScale.Scale(0.85, 50);
             IsChecked = !IsChecked;

@@ -24,12 +24,25 @@ namespace TasksBar.Linux.Views
                 chrome.Background = new SolidColorBrush(baseColor, opacity);
             }
 
-            window.Opened += (s, e) => Apply();
+            window.Opened += (s, e) =>
+            {
+                Apply();
+                Windows.Add(Apply);
+            };
+            window.Closed += (s, e) => Windows.Remove(Apply);
             window.PropertyChanged += (s, e) =>
             {
                 if (e.Property == TopLevel.ActualTransparencyLevelProperty) Apply();
             };
             window.ActualThemeVariantChanged += (s, e) => Apply();
+        }
+
+        private static readonly System.Collections.Generic.List<Action> Windows = new();
+
+        /// <summary>Re-applies the backdrop on every open window (after the setting changes).</summary>
+        public static void RefreshAll()
+        {
+            foreach (var apply in Windows.ToArray()) apply();
         }
     }
 }

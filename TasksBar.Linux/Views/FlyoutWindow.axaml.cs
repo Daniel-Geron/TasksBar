@@ -192,13 +192,70 @@ namespace TasksBar.Linux.Views
         private void AddNote_Click(object? sender, RoutedEventArgs e)
         {
             // Opens to the left of the flyout, like the Windows app
-            double scaling = Scaling;
-            var note = new StickyNoteWindow(Position.X / scaling - 260, Position.Y / scaling);
-            note.Show();
+            StickyNoteWindow.OpenNew(this);
         }
 
-        private void Settings_Click(object? sender, RoutedEventArgs e) =>
-            ShowToast($"For now, edit {AppPaths.File("config.json")}", "Settings are coming soon", celebrate: false);
+        private Settings.SettingsWindow? _settingsWindow;
+
+        private void Settings_Click(object? sender, RoutedEventArgs e) => OpenSettings();
+
+        public void OpenSettings()
+        {
+            if (_settingsWindow != null)
+            {
+                _settingsWindow.Activate();
+                return;
+            }
+
+            // Remember which sync account was in use, to notice a switch (e.g. Google to Tasks.org)
+            bool previousSyncState = TaskSync.IsEnabled;
+            string previousAccount = TaskSync.AccountKey;
+            var previousPosition = AppConfig.Settings.Position;
+
+            _settingsWindow = new Settings.SettingsWindow();
+            _settingsWindow.Closed += async (s, args) =>
+            {
+                _settingsWindow = null;
+                Topmost = AppConfig.Settings.StayOnTop;
+                UpdatePinIcon();
+                if (previousPosition != AppConfig.Settings.Position) _isCustomDragged = false;
+                ShowFlyout();
+
+                if (TaskSync.IsEnabled)
+                {
+                    bool accountChanged = previousAccount != TaskSync.AccountKey;
+
+                    // Picks up a Google login made in Settings without opening the browser again
+                    if (_backend == null && !accountChanged) TaskSync.ConnectWithoutPrompt();
+
+                    if (_backend == null || accountChanged)
+                    {
+                        await InitializeSyncAsync();
+                    }
+                    else
+                    {
+                        await SyncTasksFromRemote();
+                        await PopulateTrayMenu();
+                        await StickyNoteSync.SyncAsync();
+                    }
+                }
+                else if (previousSyncState)
+                {
+                    TaskSync.Disconnect();
+                    LoadLocalTasks(); // Show the local lists if sync was just turned off
+                }
+            };
+            _settingsWindow.Show();
+            _settingsWindow.Activate();
+        }
+
+        /// <summary>The list shown changed in Settings: show its tasks.</summary>
+        public async Task ReloadSelectedListAsync()
+        {
+            if (TaskSync.IsEnabled) await SyncTasksFromRemote();
+            else LoadLocalTasks();
+            await PopulateTrayMenu();
+        }
 
         // ------------------------------------------------------------------ local tasks
 

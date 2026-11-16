@@ -162,7 +162,12 @@ namespace TasksBar.Services.Sync
         public async Task<string?> GetDefaultListIdAsync()
         {
             var lists = await GetListsAsync();
-            return lists.FirstOrDefault(l => !StickyNoteSync.IsNotesList(l.Id, l.Title))?.Id;
+            string? first = lists.FirstOrDefault(l => !StickyNoteSync.IsNotesList(l.Id, l.Title))?.Id;
+            if (first != null) return first;
+
+            // A new account (or a server used only for events) may have no task list yet:
+            // make one, so new tasks have somewhere to go
+            return (await CreateListAsync("Tasks")).Id;
         }
 
         // ------------------------------------------------------------------ tasks

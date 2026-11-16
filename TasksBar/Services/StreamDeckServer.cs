@@ -78,16 +78,16 @@ namespace TasksBar.Services
             if (path == "/api/get-lists")
             {
                 var lists = new System.Collections.Generic.List<object>();
-                if (AppConfig.Settings.EnableGoogleSync)
+                if (Sync.TaskSync.IsEnabled)
                 {
-                    var service = GoogleAuthManager.GetTasksService();
-                    if (service != null)
+                    var backend = Sync.TaskSync.Current;
+                    if (backend != null)
                     {
                         try
                         {
                             // Fetch directly on background thread
-                            var gLists = service.Tasklists.List().Execute();
-                            foreach (var lst in gLists.Items)
+                            var remoteLists = backend.GetListsAsync().GetAwaiter().GetResult();
+                            foreach (var lst in remoteLists)
                             {
                                 if (StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                                 lists.Add(new { id = lst.Id, title = lst.Title });
@@ -138,7 +138,7 @@ namespace TasksBar.Services
                     var taskItem = new TaskItem { Title = title, Details = details, IsCompleted = false };
                     mainWindow?.MyTasks.Insert(0, taskItem);
 
-                    if (!AppConfig.Settings.EnableGoogleSync)
+                    if (!Sync.TaskSync.IsEnabled)
                         LocalDataManager.SaveTasks(mainWindow.MyTasks, AppConfig.Settings.SelectedListId);
                 }
                 else if (path == "/api/new-note")
@@ -153,8 +153,8 @@ namespace TasksBar.Services
 
                     if (mainWindow != null)
                     {
-                        if (AppConfig.Settings.EnableGoogleSync)
-                            _ = mainWindow.SyncTasksFromGoogle();
+                        if (Sync.TaskSync.IsEnabled)
+                            _ = mainWindow.SyncTasksFromRemote();
                         else
                             mainWindow.LoadLocalTasks();
 

@@ -8,28 +8,28 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Ink;
-using Google.Apis.Tasks.v1;
-using GTask = Google.Apis.Tasks.v1.Data.Task;
+using TasksBar.Services.Sync;
 
 namespace TasksBar.Services
 {
     /// <summary>
-    /// Mirrors sticky notes into a dedicated Google Tasks list so they survive across devices
-    /// and can be read in the Google Tasks app. One task per note: the title is the note's first
-    /// line, the details hold the note text, then (only when not default) a small settings block,
-    /// then the drawing data. Content that doesn't fit
-    /// in Google's details limit continues in numbered subtasks of that task.
+    /// Mirrors sticky notes into a dedicated task list on the active sync service (Google Tasks or
+    /// CalDAV/Tasks.org) so they survive across devices and can be read in other task apps. One task
+    /// per note: the title is the note's first line, the details hold the note text, then (only when
+    /// not default) a small settings block, then the drawing data. Content that doesn't fit in one
+    /// task's details continues in numbered subtasks of that task.
     /// Everything runs on the UI thread; a semaphore keeps pushes and pulls from overlapping.
     /// </summary>
     public static class StickyNoteSync
     {
         public const string NotesListTitle = "TasksBar Sticky Notes";
 
-        // Google rejects notes longer than 8192 characters; keep a little headroom
+        // Google rejects notes longer than 8192 characters; keep a little headroom (used for every service)
         private const int MaxNotesLength = 8000;
         private const string DrawingMarker = "──── TasksBar drawing data (don't edit below) ────";
         private const string SettingsMarker = "──── TasksBar note settings (don't edit below) ────";
         private const string OpenOnStartupOff = "open-on-startup: off";
+        private const string TitlePrefix = "title: ";
         private const string PartTitlePrefix = "TasksBar note data, part ";
 
         // Pasted images: the note's details list where each image sits ("id x y width height"), and the
@@ -44,8 +44,7 @@ namespace TasksBar.Services
         private static System.Windows.Threading.DispatcherTimer? _pullTimer;
         private static readonly TimeSpan PullInterval = TimeSpan.FromMinutes(5);
 
-        public static bool IsEnabled =>
-            AppConfig.Settings.EnableGoogleSync && AppConfig.Settings.SyncStickyNotes;
+        public static bool IsEnabled => TaskSync.IsEnabled && AppConfig.Settings.SyncStickyNotes;
 
         /// <summary>True for the hidden notes list, so list pickers can skip it.</summary>
         public static bool IsNotesList(string? id, string? title) =>
@@ -91,21 +90,24 @@ namespace TasksBar.Services
 
         // ------------------------------------------------------------------ public entry points
 
-        /// <summary>Uploads local changes, then applies changes made on other devices.</summary>
+        /// <summary>Applies changes made on other devices, then uploads local changes.</summary>
         public static async Task SyncAsync()
         {
             EnsurePeriodicPull();
             if (!IsEnabled) return;
-            var service = GoogleAuthManager.GetTasksService();
-            if (service == null) return;
+            var backend = TaskSync.Current;
+            if (backend == null) return;
 
             await _gate.WaitAsync();
             try
             {
-                string listId = await EnsureNotesListAsync(service);
-                await FlushPendingDeletesAsync(service, listId);
-                await PushDirtyCoreAsync(service, listId);
-                await PullCoreAsync(service, listId);
+                EnsureSameAccount();
+                string listId = await EnsureNotesListAsync(backend);
+                await FlushPendingDeletesAsync(backend, listId);
+                // Pull first, so notes this device hasn't linked yet (first sync with an account)
+                // are matched to their copy on the server instead of being uploaded twice
+                await PullCoreAsync(backend, listId);
+                await PushDirtyCoreAsync(backend, listId);
             }
             catch (Exception ex)
             {
@@ -121,14 +123,21 @@ namespace TasksBar.Services
         public static async Task PushDirtyAsync()
         {
             if (!IsEnabled) return;
-            var service = GoogleAuthManager.GetTasksService();
-            if (service == null) return;
+            var backend = TaskSync.Current;
+            if (backend == null) return;
+
+            // Not linked with this account yet: a full sync matches notes against the server first
+            if (AppConfig.Settings.NotesSyncAccount != TaskSync.AccountKey || string.IsNullOrEmpty(AppConfig.Settings.StickyNotesListId))
+            {
+                await SyncAsync();
+                return;
+            }
 
             await _gate.WaitAsync();
             try
             {
-                string listId = await EnsureNotesListAsync(service);
-                await PushDirtyCoreAsync(service, listId);
+                string listId = await EnsureNotesListAsync(backend);
+                await PushDirtyCoreAsync(backend, listId);
             }
             catch (Exception ex)
             {
@@ -140,7 +149,7 @@ namespace TasksBar.Services
             }
         }
 
-        /// <summary>Removes the note's Google task. Queued and retried if it can't be done now.</summary>
+        /// <summary>Removes the note's remote task. Queued and retried if it can't be done now.</summary>
         public static async Task DeleteNoteAsync(StickyNoteModel note)
         {
             if (string.IsNullOrEmpty(note.GoogleTaskId)) return;
@@ -151,14 +160,15 @@ namespace TasksBar.Services
             AppConfig.Save();
 
             if (!IsEnabled) return;
-            var service = GoogleAuthManager.GetTasksService();
-            if (service == null) return;
+            var backend = TaskSync.Current;
+            if (backend == null) return;
 
             await _gate.WaitAsync();
             try
             {
-                string listId = await EnsureNotesListAsync(service);
-                await FlushPendingDeletesAsync(service, listId);
+                EnsureSameAccount();
+                string listId = await EnsureNotesListAsync(backend);
+                await FlushPendingDeletesAsync(backend, listId);
             }
             catch (Exception ex)
             {
@@ -170,29 +180,51 @@ namespace TasksBar.Services
             }
         }
 
+        // ------------------------------------------------------------------ account switching
+
+        /// <summary>
+        /// The notes' remote ids only mean something on the account they were synced with. After
+        /// switching (e.g. Google to Tasks.org) they're cleared, and the next pull links each note to
+        /// an identical one already on the new account, or uploads it.
+        /// </summary>
+        private static void EnsureSameAccount()
+        {
+            string account = TaskSync.AccountKey;
+            string previous = AppConfig.Settings.NotesSyncAccount;
+            if (previous == account) return;
+
+            // Before this setting existed, notes could only have been synced with Google
+            bool upgradeFromGoogleOnly = previous.Length == 0 && account == "google";
+            if (!upgradeFromGoogleOnly)
+            {
+                foreach (var note in LocalDataManager.ActiveNotes)
+                {
+                    note.GoogleTaskId = null;
+                    note.PartTaskIds.Clear();
+                    note.ImageTaskIds.Clear();
+                    note.RemoteUpdated = null;
+                    note.IsDirty = true;
+                }
+                AppConfig.Settings.StickyNotesListId = "";
+                AppConfig.Settings.PendingNoteDeletes.Clear();
+                LocalDataManager.SaveNotes();
+            }
+
+            AppConfig.Settings.NotesSyncAccount = account;
+            AppConfig.Save();
+        }
+
         // ------------------------------------------------------------------ list management
 
-        private static async Task<string> EnsureNotesListAsync(TasksService service)
+        private static async Task<string> EnsureNotesListAsync(ITaskBackend backend)
         {
-            var lists = new List<Google.Apis.Tasks.v1.Data.TaskList>();
-            var request = service.Tasklists.List();
-            request.MaxResults = 100;
-            do
-            {
-                var page = await request.ExecuteAsync();
-                if (page.Items != null) lists.AddRange(page.Items);
-                request.PageToken = page.NextPageToken;
-            } while (!string.IsNullOrEmpty(request.PageToken));
+            var lists = await backend.GetListsAsync();
 
-            // Prefer the remembered id (survives a rename in the Google app), then the title
+            // Prefer the remembered id (survives a rename in another app), then the title
             var existing = lists.FirstOrDefault(l => l.Id == AppConfig.Settings.StickyNotesListId)
                         ?? lists.FirstOrDefault(l => l.Title == NotesListTitle);
 
-            if (existing == null)
-            {
-                existing = await service.Tasklists.Insert(
-                    new Google.Apis.Tasks.v1.Data.TaskList { Title = NotesListTitle }).ExecuteAsync();
-            }
+            existing ??= await backend.CreateListAsync(NotesListTitle);
 
             if (AppConfig.Settings.StickyNotesListId != existing.Id)
             {
@@ -203,7 +235,7 @@ namespace TasksBar.Services
             return existing.Id;
         }
 
-        private static async Task FlushPendingDeletesAsync(TasksService service, string listId)
+        private static async Task FlushPendingDeletesAsync(ITaskBackend backend, string listId)
         {
             var pending = AppConfig.Settings.PendingNoteDeletes;
             if (pending.Count == 0) return;
@@ -212,10 +244,10 @@ namespace TasksBar.Services
             {
                 try
                 {
-                    await service.Tasks.Delete(listId, id).ExecuteAsync();
+                    await backend.DeleteTaskAsync(listId, id);
                     pending.Remove(id);
                 }
-                catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
+                catch (RemoteNotFoundException)
                 {
                     pending.Remove(id); // Already gone
                 }
@@ -223,9 +255,15 @@ namespace TasksBar.Services
             AppConfig.Save();
         }
 
+        private static async Task DeleteQuietlyAsync(ITaskBackend backend, string listId, string taskId)
+        {
+            try { await backend.DeleteTaskAsync(listId, taskId); }
+            catch (RemoteNotFoundException) { }
+        }
+
         // ------------------------------------------------------------------ upload
 
-        private static async Task PushDirtyCoreAsync(TasksService service, string listId)
+        private static async Task PushDirtyCoreAsync(ITaskBackend backend, string listId)
         {
             var toPush = LocalDataManager.ActiveNotes
                 .Where(n => n.IsDirty || string.IsNullOrEmpty(n.GoogleTaskId))
@@ -233,48 +271,48 @@ namespace TasksBar.Services
 
             foreach (var note in toPush)
             {
-                await PushNoteAsync(service, listId, note);
+                await PushNoteAsync(backend, listId, note);
             }
 
             if (toPush.Count > 0) LocalDataManager.SaveNotes();
         }
 
-        private static async Task PushNoteAsync(TasksService service, string listId, StickyNoteModel note)
+        private static async Task PushNoteAsync(ITaskBackend backend, string listId, StickyNoteModel note)
         {
             // Snapshot what we send, so an edit made while the request is in flight stays dirty
             string text = note.Text ?? "";
             string ink = note.InkData ?? "";
             bool openOnStartup = note.OpenOnStartup;
+            string title = CleanTitle(note.Title);
             string images = FormatImages(note.Images);
 
-            List<string> chunks = SplitPayload(BuildPayload(text, ink, openOnStartup, images));
-            var body = new GTask
+            List<string> chunks = SplitPayload(BuildPayload(text, ink, openOnStartup, title, images));
+            var body = new RemoteTask
             {
-                Title = MakeTitle(text, ink, note.Images.Count > 0),
-                Notes = chunks[0],
-                Status = "needsAction"
+                Title = title.Length > 0 ? title : MakeTitle(text, ink, note.Images.Count > 0),
+                Notes = chunks[0]
             };
 
-            GTask saved;
+            RemoteTask saved;
             if (string.IsNullOrEmpty(note.GoogleTaskId))
             {
                 note.ImageTaskIds.Clear();
-                saved = await service.Tasks.Insert(body, listId).ExecuteAsync();
+                saved = await backend.CreateTaskAsync(listId, body);
             }
             else
             {
                 try
                 {
                     body.Id = note.GoogleTaskId;
-                    saved = await service.Tasks.Update(body, listId, note.GoogleTaskId).ExecuteAsync();
+                    saved = await backend.UpdateTaskAsync(listId, body);
                 }
-                catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
+                catch (RemoteNotFoundException)
                 {
                     // Deleted remotely while edited here: the local edit wins and recreates it
-                    body.Id = null;
+                    body.Id = "";
                     note.PartTaskIds.Clear();
                     note.ImageTaskIds.Clear(); // Went away with the deleted task
-                    saved = await service.Tasks.Insert(body, listId).ExecuteAsync();
+                    saved = await backend.CreateTaskAsync(listId, body);
                 }
             }
 
@@ -283,36 +321,30 @@ namespace TasksBar.Services
             // Replace overflow subtasks (rare: only very long notes or big drawings)
             foreach (var oldPart in note.PartTaskIds)
             {
-                try { await service.Tasks.Delete(listId, oldPart).ExecuteAsync(); }
-                catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound) { }
+                await DeleteQuietlyAsync(backend, listId, oldPart);
             }
             note.PartTaskIds.Clear();
 
-            string? previous = null;
             for (int i = 1; i < chunks.Count; i++)
             {
-                var insert = service.Tasks.Insert(new GTask
+                var part = await backend.CreateTaskAsync(listId, new RemoteTask
                 {
                     Title = $"{PartTitlePrefix}{i + 1} of {chunks.Count}",
-                    Notes = chunks[i]
-                }, listId);
-                insert.Parent = saved.Id;
-                if (previous != null) insert.Previous = previous;
-
-                var part = await insert.ExecuteAsync();
+                    Notes = chunks[i],
+                    Parent = saved.Id
+                });
                 note.PartTaskIds.Add(part.Id);
-                previous = part.Id;
             }
 
-            await PushImagesAsync(service, listId, note, saved.Id);
+            await PushImagesAsync(backend, listId, note, saved.Id);
 
             note.RemoteUpdated = saved.Updated;
             if (note.Text == text && note.InkData == ink && note.OpenOnStartup == openOnStartup &&
-                FormatImages(note.Images) == images) note.IsDirty = false;
+                CleanTitle(note.Title) == title && FormatImages(note.Images) == images) note.IsDirty = false;
         }
 
         // Uploads images this note hasn't uploaded yet and deletes the data of images it no longer has
-        private static async Task PushImagesAsync(TasksService service, string listId, StickyNoteModel note, string noteTaskId)
+        private static async Task PushImagesAsync(ITaskBackend backend, string listId, StickyNoteModel note, string noteTaskId)
         {
             var wanted = note.Images.Select(i => i.Id).Distinct().ToList();
 
@@ -320,8 +352,7 @@ namespace TasksBar.Services
             {
                 foreach (var taskId in note.ImageTaskIds[id])
                 {
-                    try { await service.Tasks.Delete(listId, taskId).ExecuteAsync(); }
-                    catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound) { }
+                    await DeleteQuietlyAsync(backend, listId, taskId);
                 }
                 note.ImageTaskIds.Remove(id);
             }
@@ -335,13 +366,12 @@ namespace TasksBar.Services
                 var partIds = new List<string>();
                 for (int i = 0; i < chunks.Count; i++)
                 {
-                    var insert = service.Tasks.Insert(new GTask
+                    var part = await backend.CreateTaskAsync(listId, new RemoteTask
                     {
                         Title = $"{ImagePartPrefix}{id}, part {i + 1} of {chunks.Count}",
-                        Notes = chunks[i]
-                    }, listId);
-                    insert.Parent = noteTaskId;
-                    var part = await insert.ExecuteAsync();
+                        Notes = chunks[i],
+                        Parent = noteTaskId
+                    });
                     partIds.Add(part.Id);
                 }
 
@@ -352,28 +382,34 @@ namespace TasksBar.Services
 
         // ------------------------------------------------------------------ download
 
-        private static async Task PullCoreAsync(TasksService service, string listId)
-        {
-            // List without the details: image subtasks are large, so details are only downloaded
-            // for notes that changed and for images this device doesn't have yet
-            var all = new List<GTask>();
-            var request = service.Tasks.List(listId);
-            request.ShowCompleted = false;
-            request.ShowHidden = false;
-            request.ShowDeleted = false;
-            request.MaxResults = 100;
-            request.Fields = "nextPageToken,items(id,title,parent,updated,position)";
-            do
-            {
-                var page = await request.ExecuteAsync();
-                if (page.Items != null) all.AddRange(page.Items);
-                request.PageToken = page.NextPageToken;
-            } while (!string.IsNullOrEmpty(request.PageToken));
+        private static bool IsDataPart(RemoteTask task) =>
+            task.Title.StartsWith(PartTitlePrefix, StringComparison.Ordinal) ||
+            task.Title.StartsWith(ImagePartPrefix, StringComparison.Ordinal);
 
-            var parents = all.Where(t => string.IsNullOrEmpty(t.Parent)).ToList();
+        // "TasksBar note data, part 3 of 4" -> 3
+        private static int PartNumber(string title)
+        {
+            var match = Regex.Match(title, @"part (\d+) of \d+$");
+            return match.Success ? int.Parse(match.Groups[1].Value) : int.MaxValue;
+        }
+
+        private static async Task PullCoreAsync(ITaskBackend backend, string listId)
+        {
+            // List without the details where the service allows it: image subtasks are large, so details are
+            // only downloaded for notes that changed and for images this device doesn't have yet
+            var all = await backend.GetTasksAsync(listId, includeCompleted: false, includeNotes: false);
+            var ids = new HashSet<string>(all.Select(t => t.Id));
+
+            var parents = all.Where(t => string.IsNullOrEmpty(t.Parent) && !IsDataPart(t)).ToList();
             var childrenByParent = all.Where(t => !string.IsNullOrEmpty(t.Parent))
-                                      .GroupBy(t => t.Parent)
+                                      .GroupBy(t => t.Parent!)
                                       .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Data subtasks whose note is gone (CalDAV doesn't delete subtasks along with their parent)
+            foreach (var orphan in all.Where(t => IsDataPart(t) && (string.IsNullOrEmpty(t.Parent) || !ids.Contains(t.Parent!))).ToList())
+            {
+                await DeleteQuietlyAsync(backend, listId, orphan.Id);
+            }
 
             bool changed = false;
             int newCount = 0;
@@ -382,34 +418,46 @@ namespace TasksBar.Services
             {
                 var local = LocalDataManager.ActiveNotes.FirstOrDefault(n => n.GoogleTaskId == listed.Id);
                 childrenByParent.TryGetValue(listed.Id, out var children);
-                children ??= new List<GTask>();
+                children ??= new List<RemoteTask>();
 
                 // Skip our own last upload, or a local edit that will be uploaded and win
                 bool contentChanged = false;
                 bool isNew = local == null;
                 if (local == null || (local.RemoteUpdated != listed.Updated && !local.IsDirty))
                 {
-                    var task = await service.Tasks.Get(listId, listed.Id).ExecuteAsync();
+                    var task = await backend.GetTaskAsync(listId, listed.Id);
                     var orderedParts = children
-                        .Where(p => (p.Title ?? "").StartsWith(PartTitlePrefix, StringComparison.Ordinal))
-                        .OrderBy(p => p.Position, StringComparer.Ordinal)
+                        .Where(p => p.Title.StartsWith(PartTitlePrefix, StringComparison.Ordinal))
+                        .OrderBy(p => PartNumber(p.Title))
                         .ToList();
 
-                    // Parts only continue a full first chunk. If someone shortened the details in the
-                    // Google Tasks app, the old parts are stale and would append junk to the text.
-                    bool partsAreCurrent = (task.Notes ?? "").Length >= MaxNotesLength - 1;
+                    // Parts only continue a full first chunk. If someone shortened the details in
+                    // another app, the old parts are stale and would append junk to the text.
+                    bool partsAreCurrent = task.Notes.Length >= MaxNotesLength - 1;
 
-                    var payload = new StringBuilder(task.Notes ?? "");
+                    var payload = new StringBuilder(task.Notes);
                     if (partsAreCurrent)
                     {
                         foreach (var part in orderedParts)
-                            payload.Append((await service.Tasks.Get(listId, part.Id).ExecuteAsync()).Notes ?? "");
+                            payload.Append((await backend.GetTaskAsync(listId, part.Id)).Notes);
                     }
-                    ParsePayload(payload.ToString(), out string text, out string ink, out bool openOnStartup, out var images);
+                    ParsePayload(payload.ToString(), out string text, out string ink, out bool openOnStartup, out string title, out var images);
 
                     if (local == null)
                     {
-                        // Created on another device (or in the Google Tasks app). Positions are per-device.
+                        // The same note may already be here but not linked yet (first sync with this account)
+                        local = LocalDataManager.ActiveNotes.FirstOrDefault(n =>
+                            string.IsNullOrEmpty(n.GoogleTaskId) && (n.Text ?? "") == text && (n.InkData ?? "") == ink);
+                        if (local != null)
+                        {
+                            isNew = false;
+                            local.ImageTaskIds.Clear();
+                        }
+                    }
+
+                    if (local == null)
+                    {
+                        // Created on another device (or in another task app). Positions are per-device.
                         local = new StickyNoteModel();
                         LocalDataManager.ActiveNotes.Add(local);
                     }
@@ -418,6 +466,7 @@ namespace TasksBar.Services
                     local.Text = text;
                     local.InkData = ink;
                     local.OpenOnStartup = openOnStartup;
+                    local.Title = title;
                     local.Images = images;
                     // Data of images removed on the other device was deleted there along with them
                     foreach (var id in local.ImageTaskIds.Keys.Except(images.Select(i => i.Id)).ToList())
@@ -429,7 +478,7 @@ namespace TasksBar.Services
                     contentChanged = true;
                 }
 
-                var (imagesArrived, imageRecordsChanged) = await DownloadImagesAsync(service, listId, local, children);
+                var (imagesArrived, imageRecordsChanged) = await DownloadImagesAsync(backend, listId, local, children);
                 if (imagesArrived || imageRecordsChanged) changed = true;
                 if (!contentChanged && !imagesArrived) continue;
 
@@ -445,16 +494,13 @@ namespace TasksBar.Services
                     window = new StickyNoteWindow(local);
                     window.Show();
 
-                    if (isNew)
-                    {
-                        // Cascade new notes in from the top-right corner, sized by the real window
-                        var area = SystemParameters.WorkArea;
-                        window.Left = Math.Max(area.Left, area.Right - window.ActualWidth - 40 - 30 * newCount);
-                        window.Top = area.Top + 40 + 30 * newCount;
-                        local.Left = window.Left;
-                        local.Top = window.Top;
-                        newCount++;
-                    }
+                    // Cascade new notes in from the top-right corner, sized by the real window
+                    var area = SystemParameters.WorkArea;
+                    window.Left = Math.Max(area.Left, area.Right - window.ActualWidth - 40 - 30 * newCount);
+                    window.Top = area.Top + 40 + 30 * newCount;
+                    local.Left = window.Left;
+                    local.Top = window.Top;
+                    newCount++;
                 }
             }
 
@@ -479,16 +525,16 @@ namespace TasksBar.Services
         /// Also remembers which subtasks hold each image so this device never uploads it a second time.
         /// </summary>
         private static async Task<(bool Downloaded, bool RecordsChanged)> DownloadImagesAsync(
-            TasksService service, string listId, StickyNoteModel note, List<GTask> children)
+            ITaskBackend backend, string listId, StickyNoteModel note, List<RemoteTask> children)
         {
             bool downloaded = false, recordsChanged = false;
 
             foreach (var id in note.Images.Select(i => i.Id).Distinct())
             {
                 string prefix = $"{ImagePartPrefix}{id}, part ";
-                var parts = new Dictionary<int, GTask>();
+                var parts = new Dictionary<int, RemoteTask>();
                 int total = 0;
-                foreach (var child in children.Where(c => (c.Title ?? "").StartsWith(prefix, StringComparison.Ordinal)))
+                foreach (var child in children.Where(c => c.Title.StartsWith(prefix, StringComparison.Ordinal)))
                 {
                     var match = Regex.Match(child.Title.Substring(prefix.Length), @"^(\d+) of (\d+)$");
                     if (!match.Success) continue;
@@ -509,7 +555,7 @@ namespace TasksBar.Services
 
                 var base64 = new StringBuilder();
                 for (int i = 1; i <= total; i++)
-                    base64.Append((await service.Tasks.Get(listId, parts[i].Id).ExecuteAsync()).Notes ?? "");
+                    base64.Append((await backend.GetTaskAsync(listId, parts[i].Id)).Notes);
 
                 try
                 {
@@ -532,7 +578,7 @@ namespace TasksBar.Services
 
         // ------------------------------------------------------------------ payload format
 
-        private static bool HasStrokes(string ink)
+        public static bool HasStrokes(string? ink)
         {
             if (string.IsNullOrEmpty(ink)) return false;
             try
@@ -543,11 +589,14 @@ namespace TasksBar.Services
             catch { return false; }
         }
 
-        private static string BuildPayload(string text, string ink, bool openOnStartup, string images)
+        private static string BuildPayload(string text, string ink, bool openOnStartup, string title, string images)
         {
             string payload = text;
-            // Only written when off, so notes on the default setting look exactly as before
-            if (!openOnStartup) payload += $"\n\n{SettingsMarker}\n{OpenOnStartupOff}";
+            // Only written when not default, so notes on the default settings look exactly as before
+            var settings = new List<string>();
+            if (!openOnStartup) settings.Add(OpenOnStartupOff);
+            if (title.Length > 0) settings.Add(TitlePrefix + title);
+            if (settings.Count > 0) payload += $"\n\n{SettingsMarker}\n{string.Join("\n", settings)}";
             if (images.Length > 0) payload += $"\n\n{ImagesMarker}\n{images}";
             if (HasStrokes(ink)) payload += $"\n\n{DrawingMarker}\n{ink}";
             return payload;
@@ -579,7 +628,7 @@ namespace TasksBar.Services
             return images;
         }
 
-        private static void ParsePayload(string payload, out string text, out string ink, out bool openOnStartup, out List<NoteImage> images)
+        private static void ParsePayload(string payload, out string text, out string ink, out bool openOnStartup, out string title, out List<NoteImage> images)
         {
             // Each block runs until the next block's marker or the end, so their order doesn't matter
             int drawing = payload.LastIndexOf(DrawingMarker, StringComparison.Ordinal);
@@ -602,9 +651,16 @@ namespace TasksBar.Services
             }
 
             openOnStartup = true;
+            title = "";
             if (settings >= 0)
             {
-                openOnStartup = !BlockAt(settings, SettingsMarker).Contains(OpenOnStartupOff, StringComparison.OrdinalIgnoreCase);
+                string block = BlockAt(settings, SettingsMarker);
+                openOnStartup = !block.Contains(OpenOnStartupOff, StringComparison.OrdinalIgnoreCase);
+                title = block.Split('\n')
+                             .Select(l => l.Trim())
+                             .Where(l => l.StartsWith(TitlePrefix, StringComparison.OrdinalIgnoreCase))
+                             .Select(l => l.Substring(TitlePrefix.Length).Trim())
+                             .FirstOrDefault() ?? "";
             }
 
             images = imageList >= 0 ? ParseImages(BlockAt(imageList, ImagesMarker)) : new List<NoteImage>();
@@ -634,6 +690,10 @@ namespace TasksBar.Services
             if (chunks.Count == 0) chunks.Add("");
             return chunks;
         }
+
+        /// <summary>A title is one line (it's stored as a line in the note's settings block).</summary>
+        public static string CleanTitle(string? title) =>
+            string.Join(" ", (title ?? "").Split(new[] { '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)).Trim();
 
         private static string MakeTitle(string text, string ink, bool hasImages)
         {

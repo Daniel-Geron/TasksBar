@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace TasksBar
@@ -15,6 +16,54 @@ namespace TasksBar
 
         // Whether this note's window opens when TasksBar starts. Synced to Google with the note.
         public bool OpenOnStartup { get; set; } = true;
+
+        // Name given in Settings > Sticky Notes. Empty means "use the default" (see DisplayTitle). Synced with the note.
+        public string Title { get; set; } = "";
+
+        /// <summary>The custom title, else the first line of text, else a description of what the note holds.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string DisplayTitle => !string.IsNullOrWhiteSpace(Title) ? Title.Trim() : DefaultTitle;
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string DefaultTitle
+        {
+            get
+            {
+                string firstLine = FirstTextLine;
+                if (firstLine.Length > 0) return firstLine.Length > 80 ? firstLine.Substring(0, 80) + "…" : firstLine;
+
+                int images = Images.Count;
+                string imagePart = images == 1 ? "image" : $"{images} images";
+                if (HasDrawing && images > 0) return $"Drawing with {imagePart}";
+                if (HasDrawing) return "Drawing";
+                if (images > 0) return images == 1 ? "Image" : $"{images} images";
+                return "Empty note";
+            }
+        }
+
+        /// <summary>Second line in the notes list: the text under the title, or what else the note contains.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string Preview
+        {
+            get
+            {
+                var lines = (Text ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+                // Without a custom title the first line is already the title
+                if (string.IsNullOrWhiteSpace(Title) && lines.Count > 0) lines.RemoveAt(0);
+                string text = string.Join("  ·  ", lines);
+                if (text.Length > 0) return text;
+
+                var parts = new List<string>();
+                if (HasDrawing) parts.Add("Drawing");
+                if (Images.Count > 0) parts.Add(Images.Count == 1 ? "1 image" : $"{Images.Count} images");
+                return parts.Count > 0 && !string.IsNullOrWhiteSpace(Title) ? string.Join(" · ", parts) : "";
+            }
+        }
+
+        private string FirstTextLine =>
+            (Text ?? "").Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "";
+
+        private bool HasDrawing => Services.StickyNoteSync.HasStrokes(InkData);
 
         // Pasted images floating on the note. The pixels live in note_images/{Id}.jpg (see Services/NoteImageStore.cs)
         public System.Collections.Generic.List<NoteImage> Images { get; set; } = new System.Collections.Generic.List<NoteImage>();
@@ -65,7 +114,14 @@ namespace TasksBar
         }
 
         // --- LOCAL TASKS ---
-        private static string GetTasksFile(string listId) => Path.Combine(AppContext.BaseDirectory, $"local_tasks_{listId.Replace(":", "_")}.json");
+        // CalDAV list ids are URLs, so every character that can't be in a file name becomes "_"
+        // (Google and local ids only ever had ":" to replace, so their file names stay the same)
+        private static string GetTasksFile(string listId)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            string safe = new string(listId.Select(c => c == ':' || Array.IndexOf(invalid, c) >= 0 ? '_' : c).ToArray());
+            return Path.Combine(AppContext.BaseDirectory, $"local_tasks_{safe}.json");
+        }
 
         public static void SaveTasks(IEnumerable<TaskItem> tasks, string listId)
         {

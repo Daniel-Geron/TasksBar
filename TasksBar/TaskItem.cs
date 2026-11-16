@@ -8,6 +8,9 @@ namespace TasksBar
         public string Id { get; set; }
         public bool IsNew { get; set; } // Tells the UI to auto-focus when created
 
+        // Id of the parent task when this is a subtask on the sync service (keeps it under its parent when reordered)
+        public string? ParentId { get; set; }
+
         private string _title;
         public string Title
         {

@@ -28,7 +28,37 @@
                 <DataTemplate>
                     <ui:CardControl Margin="0,0,0,8">
                         <ui:CardControl.Header>
-                            <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" MaxWidth="400" MaxHeight="60" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <StackPanel VerticalAlignment="Center" MaxWidth="400" HorizontalAlignment="Left">
+                                <!-- Title: click the pencil (or double-click the title) to rename -->
+                                <Grid>
+                                    <!-- The title shrinks (with "…") before the rename button is pushed out -->
+                                    <Grid x:Name="TitleView" HorizontalAlignment="Left">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DisplayTitle}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" ToolTip="Double-click to rename"
+                                                   MouseLeftButtonDown="Title_MouseLeftButtonDown" Tag="{Binding}"/>
+                                        <ui:Button Grid.Column="1" Appearance="Transparent" Icon="{ui:SymbolIcon Symbol=Edit16}" Padding="4" Margin="4,0,0,0"
+                                                   ToolTip="Rename" VerticalAlignment="Center" Click="RenameNote_Click" Tag="{Binding}"/>
+                                    </Grid>
+                                    <ui:TextBox x:Name="TitleEditor" Visibility="Collapsed" MinWidth="240" MaxWidth="360" HorizontalAlignment="Left"
+                                                PlaceholderText="{Binding DefaultTitle}" ClearButtonEnabled="False" Tag="{Binding}"
+                                                KeyDown="TitleEditor_KeyDown" LostKeyboardFocus="TitleEditor_LostKeyboardFocus"/>
+                                </Grid>
+                                <TextBlock Text="{Binding Preview}" FontSize="12" Opacity="0.6" TextTrimming="CharacterEllipsis" Margin="0,2,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <Trigger Property="Text" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
                         </ui:CardControl.Header>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Open at startup" FontSize="12" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0"/>

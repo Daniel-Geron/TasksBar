@@ -28,16 +28,15 @@ namespace TasksBar
         {
             DisplayLists.Clear();
 
-            if (AppConfig.Settings.EnableGoogleSync)
+            if (Services.Sync.TaskSync.IsEnabled)
             {
                 CreateListPanel.Visibility = Visibility.Collapsed;
-                var service = GoogleAuthManager.GetTasksService();
-                if (service != null)
+                var backend = Services.Sync.TaskSync.Current;
+                if (backend != null)
                 {
                     try
                     {
-                        var lists = await service.Tasklists.List().ExecuteAsync();
-                        foreach (var lst in lists.Items)
+                        foreach (var lst in await backend.GetListsAsync())
                         {
                             if (Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                             DisplayLists.Add(new ListDisplayModel { Id = lst.Id, Title = lst.Title });
@@ -86,8 +85,8 @@ namespace TasksBar
                 var mainWindow = Application.Current.Windows.Cast<Window>().OfType<TasksFlyoutWindow>().FirstOrDefault();
                 if (mainWindow != null)
                 {
-                    if (AppConfig.Settings.EnableGoogleSync)
-                        _ = mainWindow.SyncTasksFromGoogle();
+                    if (Services.Sync.TaskSync.IsEnabled)
+                        _ = mainWindow.SyncTasksFromRemote();
                     else
                         mainWindow.LoadLocalTasks();
                 }

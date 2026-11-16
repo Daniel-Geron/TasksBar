@@ -50,14 +50,15 @@
             </StackPanel>
         </Grid>
 
-        <ui:Button Grid.Row="1" Appearance="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="4,8" Margin="0,0,0,12" Click="AddTaskTop_Click">
+        <ui:Button Grid.Row="1" Appearance="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="4,8" Margin="0,0,0,0" Click="AddTaskTop_Click">
             <StackPanel Orientation="Horizontal">
                 <ui:SymbolIcon Symbol="Add20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,12,0"/>
                 <TextBlock Text="Add a task" FontSize="14" FontWeight="Medium" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
             </StackPanel>
         </ui:Button>
 
-        <ListView Grid.Row="2" x:Name="TasksListView" Margin="0,0,0,12" BorderThickness="0" Background="Transparent" 
+        <!-- The padding gives the check circle's hover glow room inside the list's clip; the negative margin keeps the layout where it was -->
+        <ListView Grid.Row="2" x:Name="TasksListView" Margin="-12,0,0,12" Padding="12,12,0,0" BorderThickness="0" Background="Transparent" 
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="False"
                   MouseLeftButtonDown="RootGrid_MouseDown"
                   SelectionMode="Single">
@@ -410,6 +411,9 @@
         </ListView>
 
         <Rectangle Grid.Row="3" Fill="{DynamicResource AccentFillColorDefaultBrush}" Height="4" RadiusX="2" RadiusY="2" Width="60" VerticalAlignment="Bottom" HorizontalAlignment="Center"/>
+
+        <!-- The floating card and landing outline while a task is dragged (see TaskReorder) -->
+        <Canvas x:Name="DragLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="9" ClipToBounds="False"/>
 
         <!-- Celebration burst when a task is completed (see TaskCompletionEffects) -->
         <Canvas x:Name="EffectsLayer" Grid.RowSpan="4" IsHitTestVisible="False" Panel.ZIndex="10"/>

@@ -92,6 +92,90 @@ namespace TasksBar
             }
         }
 
+        // --- RENAMING ---
+
+        private void RenameNote_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element) BeginRename(element);
+        }
+
+        private void Title_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2 && sender is FrameworkElement element)
+            {
+                BeginRename(element);
+                e.Handled = true;
+            }
+        }
+
+        // The title view and its editor share a Grid in the card's template
+        private static (FrameworkElement? View, Wpf.Ui.Controls.TextBox? Editor) FindTitleParts(DependencyObject from)
+        {
+            for (var current = from; current != null; current = System.Windows.Media.VisualTreeHelper.GetParent(current))
+            {
+                if (current is Grid grid)
+                {
+                    var view = grid.Children.OfType<Grid>().FirstOrDefault(c => c.Name == "TitleView");
+                    var editor = grid.Children.OfType<Wpf.Ui.Controls.TextBox>().FirstOrDefault(c => c.Name == "TitleEditor");
+                    if (view != null && editor != null) return (view, editor);
+                }
+            }
+            return (null, null);
+        }
+
+        private void BeginRename(FrameworkElement source)
+        {
+            var (view, editor) = FindTitleParts(source);
+            if (view == null || editor == null || editor.Tag is not StickyNoteModel note) return;
+
+            // Start from the current title (or the default one, so it's easy to tweak)
+            editor.Text = note.DisplayTitle;
+            view.Visibility = Visibility.Collapsed;
+            editor.Visibility = Visibility.Visible;
+            editor.Focus();
+            editor.SelectAll();
+        }
+
+        private void TitleEditor_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (sender is not Wpf.Ui.Controls.TextBox editor) return;
+
+            if (e.Key == System.Windows.Input.Key.Enter)
+            {
+                EndRename(editor, save: true);
+                e.Handled = true;
+            }
+            else if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                EndRename(editor, save: false);
+                e.Handled = true;
+            }
+        }
+
+        private void TitleEditor_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            if (sender is Wpf.Ui.Controls.TextBox editor && editor.Visibility == Visibility.Visible)
+                EndRename(editor, save: true);
+        }
+
+        private void EndRename(Wpf.Ui.Controls.TextBox editor, bool save)
+        {
+            var (view, _) = FindTitleParts(editor);
+            editor.Visibility = Visibility.Collapsed;
+            if (view != null) view.Visibility = Visibility.Visible;
+
+            if (!save || editor.Tag is not StickyNoteModel note) return;
+
+            // Clearing the box (or leaving the default unchanged) goes back to the automatic title
+            string title = Services.StickyNoteSync.CleanTitle(editor.Text);
+            if (title == note.DefaultTitle && string.IsNullOrEmpty(note.Title)) title = "";
+            if (title == (note.Title ?? "")) return;
+
+            note.Title = title;
+            Services.StickyNoteSync.MarkDirty(note);
+            NotesListView.Items.Refresh();
+        }
+
         private void DeleteNote_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Wpf.Ui.Controls.Button btn && btn.Tag is StickyNoteModel note)

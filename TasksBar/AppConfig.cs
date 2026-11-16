@@ -20,7 +20,21 @@ namespace TasksBar
 
         public bool IsLocked { get; set; } = true;
 
+        // Kept for older versions of TasksBar reading this file; SyncProvider is what's used now
         public bool EnableGoogleSync { get; set; } = false;
+
+        // Where tasks sync: "Local" (this PC only), "Google" or "CalDav". See Services/Sync/TaskSync.cs
+        public string SyncProvider { get; set; } = "";
+
+        // CalDAV account (Tasks.org Cloud by default). The app password is DPAPI-encrypted for this Windows user.
+        public bool CalDavIsTasksOrg { get; set; } = true;
+        public string CalDavServerUrl { get; set; } = "https://caldav.tasks.org/";
+        public string CalDavUsername { get; set; } = "";
+        public string CalDavPassword { get; set; } = "";
+        public string CalDavHomeUrl { get; set; } = "";
+
+        // The account the sticky notes' remote ids belong to (TaskSync.AccountKey)
+        public string NotesSyncAccount { get; set; } = "";
 
         public bool ShowCompletedTasks { get; set; } = false;
 
@@ -82,6 +96,10 @@ namespace TasksBar
 
                     Settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
 
+                    // Settings saved before Tasks.org/CalDAV support only had the Google switch
+                    if (string.IsNullOrEmpty(Settings.SyncProvider))
+                        Settings.SyncProvider = Settings.EnableGoogleSync ? "Google" : "Local";
+
                 }
 
                 catch { /* If file is corrupted, it will just use defaults */ }
@@ -96,6 +114,9 @@ namespace TasksBar
         {
 
             // Added WriteIndented so the JSON file is easy to read in Notepad!
+
+            if (string.IsNullOrEmpty(Settings.SyncProvider)) Settings.SyncProvider = "Local";
+            Settings.EnableGoogleSync = Settings.SyncProvider == "Google";
 
             var options = new JsonSerializerOptions { WriteIndented = true };
 

@@ -11,22 +11,96 @@
             <ui:CardControl Icon="{ui:SymbolIcon CloudArrowUp24}" Margin="0,0,0,4">
                 <ui:CardControl.Header>
                     <StackPanel Orientation="Vertical">
-                        <TextBlock Text="Google Tasks Sync" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                        <TextBlock Text="Keep tasks synchronized with your Google account" FontSize="12" Opacity="0.5" />
+                        <TextBlock Text="Task Sync" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="Sync with Google Tasks or Tasks.org" FontSize="12" Opacity="0.5" />
                     </StackPanel>
                 </ui:CardControl.Header>
-                <StackPanel Orientation="Horizontal">
-                    <ui:Button Content="Log in to Google" Icon="{ui:SymbolIcon Person24}" Margin="0,0,12,0" Click="LoginGoogle_Click"/>
-                    <ui:ToggleSwitch x:Name="GoogleSyncToggle" Click="Setting_Changed" />
-                </StackPanel>
+                <ComboBox x:Name="SyncProviderBox" MinWidth="200" SelectionChanged="SyncProvider_Changed">
+                    <ComboBoxItem Content="Off (this PC only)" Tag="Local"/>
+                    <ComboBoxItem Content="Google Tasks" Tag="Google"/>
+                    <ComboBoxItem Content="Tasks.org / CalDAV" Tag="CalDav"/>
+                </ComboBox>
             </ui:CardControl>
+
+            <!-- Google account -->
+            <ui:CardControl x:Name="GooglePanel" Icon="{ui:SymbolIcon Person24}" Margin="0,0,0,4" Visibility="Collapsed">
+                <ui:CardControl.Header>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Google Account" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
+                        <TextBlock Text="Sign in once; TasksBar remembers it" FontSize="12" Opacity="0.5" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:Button Content="Log in to Google" Icon="{ui:SymbolIcon Person24}" Click="LoginGoogle_Click"/>
+            </ui:CardControl>
+
+            <!-- Tasks.org / CalDAV account -->
+            <Border x:Name="CalDavPanel" Visibility="Collapsed" Margin="0,0,0,4" Padding="16" CornerRadius="8" BorderThickness="1"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Symbol="PlugConnected24" FontSize="24" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Tasks.org / CalDAV Account" FontSize="14" FontWeight="Medium"/>
+                            <TextBlock x:Name="CalDavStatusText" Text="Not connected" FontSize="12" Opacity="0.5" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ComboBox x:Name="CalDavServerTypeBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center" SelectionChanged="CalDavServerType_Changed">
+                            <ComboBoxItem Content="Tasks.org Cloud"/>
+                            <ComboBoxItem Content="Other CalDAV server"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <TextBlock x:Name="TasksOrgHelpText" FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,12">
+                        Needs a Tasks.org subscription with Tasks.org Cloud sync. Create an app password in the Tasks.org app
+                        (Settings → your Tasks.org account → App passwords) or at
+                        <Hyperlink NavigateUri="https://tasks.org/account" RequestNavigate="Hyperlink_RequestNavigate">tasks.org/account</Hyperlink>,
+                        then copy the username and password it shows below. They're only shown once.
+                    </TextBlock>
+                    <TextBlock x:Name="CalDavHelpText" FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,12" Visibility="Collapsed">
+                        Works with Nextcloud, Fastmail, iCloud, Radicale and other servers that store tasks over CalDAV.
+                        The server address can be the site's root (e.g. https://cloud.example.com) or your CalDAV URL.
+                        If your provider offers app passwords, use one here.
+                    </TextBlock>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="CalDavServerLabel" Text="Server" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <ui:TextBox x:Name="CalDavServerBox" Grid.Column="1" PlaceholderText="https://cloud.example.com" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="1" Text="Username" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                        <ui:TextBox x:Name="CalDavUserBox" Grid.Row="1" Grid.Column="1" PlaceholderText="Username" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="2" Text="App password" VerticalAlignment="Center"/>
+                        <ui:PasswordBox x:Name="CalDavPasswordBox" Grid.Row="2" Grid.Column="1" PlaceholderText="Password"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <ui:Button x:Name="CalDavDisconnectButton" Content="Disconnect" Margin="0,0,8,0" Click="CalDavDisconnect_Click" Visibility="Collapsed"/>
+                        <ui:Button x:Name="CalDavConnectButton" Content="Connect" Appearance="Primary" Icon="{ui:SymbolIcon PlugConnected24}" Click="CalDavConnect_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
             <ui:CardControl Icon="{ui:SymbolIcon Note24}" Margin="0,0,0,4">
                 <ui:CardControl.Header>
                     <StackPanel Orientation="Vertical">
                         <TextBlock Text="Sync Sticky Notes" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" />
-                        <TextBlock Text="Back up notes to a hidden Google Tasks list" FontSize="12" Opacity="0.5" />
-                        <TextBlock Text="(Requires Google Tasks Sync)" FontSize="12" Opacity="0.5" />
+                        <TextBlock Text="Back up notes to a hidden list in your synced account" FontSize="12" Opacity="0.5" />
+                        <TextBlock Text="(Requires Task Sync)" FontSize="12" Opacity="0.5" />
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ui:ToggleSwitch x:Name="NoteSyncToggle" Click="Setting_Changed" />

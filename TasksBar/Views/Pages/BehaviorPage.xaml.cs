@@ -12,7 +12,7 @@ namespace TasksBar
         public BehaviorPage()
         {
             InitializeComponent();
-            GoogleSyncToggle.IsChecked = AppConfig.Settings.EnableGoogleSync;
+            LoadSyncSettings();
             StartupToggle.IsChecked = AppConfig.Settings.LaunchOnStartup;
 
             // 1. Load the visual state of the toggle
@@ -27,6 +27,122 @@ namespace TasksBar
             Unloaded += (s, e) => Services.HotkeyManager.Apply();
 
             _isLoaded = true;
+        }
+
+        // --- TASK SYNC (Google Tasks / Tasks.org / CalDAV) ---
+
+        private void LoadSyncSettings()
+        {
+            string provider = AppConfig.Settings.SyncProvider;
+            foreach (ComboBoxItem item in SyncProviderBox.Items)
+            {
+                if ((string)item.Tag == provider) SyncProviderBox.SelectedItem = item;
+            }
+            if (SyncProviderBox.SelectedItem == null) SyncProviderBox.SelectedIndex = 0;
+
+            CalDavServerTypeBox.SelectedIndex = AppConfig.Settings.CalDavIsTasksOrg ? 0 : 1;
+            CalDavServerBox.Text = AppConfig.Settings.CalDavIsTasksOrg ? "" : AppConfig.Settings.CalDavServerUrl;
+            CalDavUserBox.Text = AppConfig.Settings.CalDavUsername;
+            UpdateSyncPanels();
+        }
+
+        private string SelectedProvider => (SyncProviderBox.SelectedItem as ComboBoxItem)?.Tag as string ?? Services.Sync.TaskSync.Local;
+        private bool IsTasksOrgSelected => CalDavServerTypeBox.SelectedIndex != 1;
+
+        private void UpdateSyncPanels()
+        {
+            string provider = SelectedProvider;
+            GooglePanel.Visibility = provider == Services.Sync.TaskSync.Google ? Visibility.Visible : Visibility.Collapsed;
+            CalDavPanel.Visibility = provider == Services.Sync.TaskSync.CalDav ? Visibility.Visible : Visibility.Collapsed;
+
+            bool tasksOrg = IsTasksOrgSelected;
+            CalDavServerLabel.Visibility = CalDavServerBox.Visibility = tasksOrg ? Visibility.Collapsed : Visibility.Visible;
+            TasksOrgHelpText.Visibility = tasksOrg ? Visibility.Visible : Visibility.Collapsed;
+            CalDavHelpText.Visibility = tasksOrg ? Visibility.Collapsed : Visibility.Visible;
+
+            bool connected = Services.Sync.TaskSync.IsCalDavConfigured;
+            CalDavDisconnectButton.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+            CalDavConnectButton.Content = connected ? "Reconnect" : "Connect";
+            if (connected)
+            {
+                CalDavStatusText.Text = $"Connected to {Services.Sync.TaskSync.CalDavName} as {AppConfig.Settings.CalDavUsername}";
+            }
+            else if (!string.IsNullOrEmpty(AppConfig.Settings.CalDavUsername))
+            {
+                CalDavStatusText.Text = "Not connected. Enter your app password to connect again.";
+            }
+            else
+            {
+                CalDavStatusText.Text = "Not connected";
+            }
+        }
+
+        private void SyncProvider_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isLoaded) return;
+
+            string provider = SelectedProvider;
+            if (provider != AppConfig.Settings.SyncProvider)
+            {
+                AppConfig.Settings.SyncProvider = provider;
+                // List ids belong to one service, so start from its default list
+                AppConfig.Settings.SelectedListId = "@default";
+                AppConfig.Save();
+            }
+            UpdateSyncPanels();
+        }
+
+        private void CalDavServerType_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isLoaded) return;
+            UpdateSyncPanels();
+        }
+
+        private async void CalDavConnect_Click(object sender, RoutedEventArgs e)
+        {
+            bool tasksOrg = IsTasksOrgSelected;
+            string server = tasksOrg ? Services.Sync.TaskSync.TasksOrgServerUrl : CalDavServerBox.Text.Trim();
+            string username = CalDavUserBox.Text.Trim();
+            string password = CalDavPasswordBox.Password;
+
+            if ((!tasksOrg && server.Length == 0) || username.Length == 0 || password.Length == 0)
+            {
+                CalDavStatusText.Text = tasksOrg
+                    ? "Enter the username and app password from Tasks.org."
+                    : "Enter the server address, username and password.";
+                return;
+            }
+
+            CalDavConnectButton.IsEnabled = false;
+            CalDavStatusText.Text = "Connecting...";
+            try
+            {
+                int lists = await Services.Sync.TaskSync.SetUpCalDavAsync(server, username, password, tasksOrg);
+                CalDavPasswordBox.Password = "";
+                UpdateSyncPanels();
+                CalDavStatusText.Text += lists == 1 ? " · 1 task list found" : $" · {lists} task lists found";
+            }
+            catch (Services.Sync.RemoteAuthException)
+            {
+                CalDavStatusText.Text = tasksOrg
+                    ? "Tasks.org didn't accept that username and app password. Check them, or create a new app password."
+                    : "The server didn't accept that username and password.";
+            }
+            catch (Exception ex)
+            {
+                CalDavStatusText.Text = $"Couldn't connect: {ex.Message}";
+            }
+            finally
+            {
+                CalDavConnectButton.IsEnabled = true;
+            }
+        }
+
+        private void CalDavDisconnect_Click(object sender, RoutedEventArgs e)
+        {
+            Services.Sync.TaskSync.ForgetCalDavAccount();
+            CalDavPasswordBox.Password = "";
+            UpdateSyncPanels();
         }
 
         // --- STICKY NOTE SHORTCUTS ---
@@ -197,16 +313,10 @@ namespace TasksBar
 
         private void Setting_Changed(object sender, RoutedEventArgs e)
         {
-            if (GoogleSyncToggle.IsChecked == true && !AppConfig.Settings.EnableGoogleSync ||
-                GoogleSyncToggle.IsChecked == false && AppConfig.Settings.EnableGoogleSync)
-            {
-                AppConfig.Settings.SelectedListId = "@default";
-            }
             if (!_isLoaded) return;
 
             bool wasNoteSync = Services.StickyNoteSync.IsEnabled;
 
-            AppConfig.Settings.EnableGoogleSync = GoogleSyncToggle.IsChecked == true;
             AppConfig.Settings.LaunchOnStartup = StartupToggle.IsChecked == true;
             AppConfig.Settings.SyncStickyNotes = NoteSyncToggle.IsChecked == true;
             AppConfig.Settings.EnableHoverSound = HoverSoundToggle.IsChecked == true;

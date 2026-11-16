@@ -34,8 +34,8 @@ namespace TasksBar
         private bool _isCustomDragged = false;
         private double _customLeft = 0;
         private double _customTop = 0;
-        // Google API Service
-        private TasksService _googleTasksService;        
+        // The connected sync service (Google Tasks or CalDAV/Tasks.org), null when tasks are local only
+        private Services.Sync.ITaskBackend? _backend => Services.Sync.TaskSync.Current;
         private System.Windows.Forms.NotifyIcon _trayIcon;
         public TasksFlyoutWindow()
         {
@@ -73,6 +73,21 @@ namespace TasksBar
             MyTasks = new ObservableCollection<TaskItem>();
             TasksListView.ItemsSource = MyTasks;
 
+            // Drag tasks to reorder them. New (unsaved) and completed tasks stay put.
+            _reorder = new TaskReorder(TasksListView, DragLayer, MyTasks,
+                task => !task.IsCompleted && !string.IsNullOrWhiteSpace(task.Title) && (task.Id != null || !Services.Sync.TaskSync.IsEnabled),
+                OnTaskReordered);
+            TasksListView.PreviewKeyDown += TasksListView_PreviewKeyDown;
+            _reorder.DragEnded += () =>
+            {
+                // A refresh that arrived mid-drag was held back so the list didn't change under the pointer
+                if (_refreshAfterDrag)
+                {
+                    _refreshAfterDrag = false;
+                    _ = SyncTasksFromRemote();
+                }
+            };
+
             this.Loaded += async (s, e) =>
             {
                 PlaySlideAnimation();
@@ -86,13 +101,13 @@ namespace TasksBar
 
                 Services.HotkeyManager.Initialize();
 
-                if (AppConfig.Settings.EnableGoogleSync)
+                if (Services.Sync.TaskSync.IsEnabled)
                 {
-                    await InitializeGoogleTasksAsync();
+                    await InitializeSyncAsync();
                 }
                 else
                 {
-                    // Load tasks from JSON if Google is off!
+                    // Load tasks from JSON if sync is off
                     LoadLocalTasks();
                 }
             };
@@ -227,48 +242,189 @@ namespace TasksBar
             }
             base.OnClosed(e);
         }
-        // --- GOOGLE API INTEGRATION ---
+        // --- TASK SYNC (Google Tasks or CalDAV / Tasks.org, see Services/Sync) ---
 
-        private async Task InitializeGoogleTasksAsync()
+        private async Task InitializeSyncAsync()
         {
             try
             {
-                // THE FIX: Check if the file exists before trying to log in!
-                string credsPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, "credentials.json");
-                if (!System.IO.File.Exists(credsPath))
+                if (Services.Sync.TaskSync.Provider == Services.Sync.TaskSync.Google)
                 {
-                    System.Windows.MessageBox.Show(
-                        "Welcome to TasksBar!\n\nTo connect to Google, you need to provide your own API credentials.\n\nPlease place your 'credentials.json' file in the same folder as this app and try again.",
-                        "Missing Credentials",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Warning);
+                    // Google needs the app's own API credentials next to the exe
+                    string credsPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, "credentials.json");
+                    if (!System.IO.File.Exists(credsPath))
+                    {
+                        System.Windows.MessageBox.Show(
+                            "Welcome to TasksBar!\n\nTo connect to Google, you need to provide your own API credentials.\n\nPlease place your 'credentials.json' file in the same folder as this app and try again.",
+                            "Missing Credentials",
+                            System.Windows.MessageBoxButton.OK,
+                            System.Windows.MessageBoxImage.Warning);
 
-                    return;
+                        return;
+                    }
                 }
 
-                // Tell the central manager to handle the token/login process
-                await GoogleAuthManager.LoginAsync();
+                // Signs in to Google (browser only if needed), or sets up the saved CalDAV account
+                await Services.Sync.TaskSync.ConnectAsync();
 
-                // Grab the initialized service directly from the manager
-                _googleTasksService = GoogleAuthManager.GetTasksService();
-
-                await SyncTasksFromGoogle();
+                await SyncTasksFromRemote();
                 await PopulateTrayMenu();
                 await Services.StickyNoteSync.SyncAsync();
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Failed to connect to Google: {ex.Message}");
+                System.Windows.MessageBox.Show($"Failed to connect to {Services.Sync.TaskSync.ProviderName}: {ex.Message}");
             }
         }
         private bool _isSyncingTasks = false;
         private bool _syncRequested = false;
         private bool _isHandlingExpiredSignIn = false;
 
-        // Never throws: a failed refresh keeps the tasks already on screen instead of crashing the app
-        public async Task SyncTasksFromGoogle()
+        // "@default" is Google's name for the main list. Other services have no such alias, so it's
+        // swapped for their first list (and remembered) the first time tasks are loaded.
+        private async Task<string?> ResolveSelectedListAsync()
         {
-            if (_googleTasksService == null) return;
+            if (_backend == null) return null;
+            string listId = AppConfig.Settings.SelectedListId;
+            if (listId != "@default" || Services.Sync.TaskSync.Provider == Services.Sync.TaskSync.Google) return listId;
+
+            string? first = await _backend.GetDefaultListIdAsync();
+            if (first != null)
+            {
+                AppConfig.Settings.SelectedListId = first;
+                AppConfig.Save();
+            }
+            return first;
+        }
+
+        // --- KEYBOARD NAVIGATION ---
+        // Up/Down walk through the text like one long document: once the caret is on the last line,
+        // Down goes title → details → next task's title; Up goes the other way.
+
+        private void TasksListView_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Up && e.Key != Key.Down) return;
+            if (Keyboard.Modifiers != ModifierKeys.None) return; // Shift+arrows still extend a selection
+            if (e.OriginalSource is not System.Windows.Controls.TextBox box || box.DataContext is not TaskItem task) return;
+
+            bool isTitle = box.Name == "TaskTitleInput";
+            bool isDetails = box.Name == "TaskDetailsInput";
+            if (!isTitle && !isDetails) return;
+
+            // Still room to move inside this box (wrapped lines count as lines)
+            bool down = e.Key == Key.Down;
+            int line = box.GetLineIndexFromCharacterIndex(box.CaretIndex);
+            int lines = box.LineCount;
+            if (line >= 0 && lines > 0 && (down ? line < lines - 1 : line > 0)) return;
+
+            int index = MyTasks.IndexOf(task);
+            TaskItem? target;
+            bool toDetails;
+            if (down)
+            {
+                target = isTitle ? task : (index + 1 < MyTasks.Count ? MyTasks[index + 1] : null);
+                toDetails = isTitle;
+            }
+            else
+            {
+                target = isDetails ? task : (index > 0 ? MyTasks[index - 1] : null);
+                toDetails = !isDetails;
+            }
+            if (target == null) return; // First/last field of the list: nowhere to go
+
+            // Keep the caret's horizontal position, like moving between lines of a text editor
+            var caret = box.GetRectFromCharacterIndex(box.CaretIndex);
+            double windowX = caret.IsEmpty ? double.NaN : box.TranslatePoint(new Point(caret.X, 0), this).X;
+
+            e.Handled = true;
+            FocusTaskField(target, toDetails, windowX, enterFromBelow: !down);
+        }
+
+        private void FocusTaskField(TaskItem task, bool details, double windowX, bool enterFromBelow)
+        {
+            TasksListView.ScrollIntoView(task);
+            TasksListView.UpdateLayout();
+            if (TasksListView.ItemContainerGenerator.ContainerFromItem(task) is not DependencyObject container) return;
+
+            var title = FindNamed<System.Windows.Controls.TextBox>(container, "TaskTitleInput");
+            var detailsBox = FindNamed<System.Windows.Controls.TextBox>(container, "TaskDetailsInput");
+            if (title == null) return;
+
+            // An empty details box only appears while its task is being edited, so focus the task first
+            if (details && detailsBox != null && detailsBox.Visibility != Visibility.Visible)
+            {
+                title.Focus();
+                TasksListView.UpdateLayout();
+            }
+
+            var box = details && detailsBox != null && detailsBox.Visibility == Visibility.Visible ? detailsBox : title;
+            box.Focus();
+            box.UpdateLayout();
+
+            // Land on the first line coming from above, the last line coming from below, at the same x
+            int length = box.Text?.Length ?? 0;
+            int caretIndex = enterFromBelow ? length : 0;
+            if (!double.IsNaN(windowX) && length > 0)
+            {
+                var lineRect = box.GetRectFromCharacterIndex(enterFromBelow ? length : 0);
+                if (!lineRect.IsEmpty)
+                {
+                    double x = this.TranslatePoint(new Point(windowX, 0), box).X;
+                    int hit = box.GetCharacterIndexFromPoint(new Point(x, lineRect.Top + lineRect.Height / 2), snapToText: true);
+                    if (hit >= 0)
+                    {
+                        var hitRect = box.GetRectFromCharacterIndex(hit);
+                        var hitEnd = box.GetRectFromCharacterIndex(hit, trailingEdge: true);
+                        caretIndex = x > (hitRect.Left + hitEnd.Left) / 2 ? hit + 1 : hit;
+                    }
+                }
+            }
+            box.CaretIndex = Math.Min(caretIndex, length);
+        }
+
+        private static T? FindNamed<T>(DependencyObject root, string name) where T : FrameworkElement
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match && match.Name == name) return match;
+                var deeper = FindNamed<T>(child, name);
+                if (deeper != null) return deeper;
+            }
+            return null;
+        }
+
+        private TaskReorder _reorder;
+        private bool _refreshAfterDrag = false;
+
+        // Saves the order after a task was dragged to a new place
+        private async void OnTaskReordered(TaskItem moved)
+        {
+            if (!Services.Sync.TaskSync.IsEnabled)
+            {
+                LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
+                return;
+            }
+
+            var backend = _backend;
+            if (backend == null || moved.Id == null) return;
+
+            var order = MyTasks.Where(t => t.Id != null)
+                               .Select(t => new Services.Sync.RemoteTask { Id = t.Id, Parent = t.ParentId })
+                               .ToList();
+            await RunSyncRequest(() => backend.ReorderTaskAsync(AppConfig.Settings.SelectedListId, order, moved.Id));
+        }
+
+        // Never throws: a failed refresh keeps the tasks already on screen instead of crashing the app
+        public async Task SyncTasksFromRemote()
+        {
+            if (_backend == null) return;
+
+            if (_reorder != null && _reorder.IsDragging)
+            {
+                _refreshAfterDrag = true;
+                return;
+            }
 
             // Two refreshes running at once would interleave their results, so queue one more pass instead
             if (_isSyncingTasks)
@@ -285,20 +441,20 @@ namespace TasksBar
                     _syncRequested = false;
                     await DownloadAndShowTasks();
                 }
-                while (_syncRequested && _googleTasksService != null);
+                while (_syncRequested && _backend != null);
             }
-            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound && AppConfig.Settings.SelectedListId != "@default")
+            catch (Services.Sync.RemoteNotFoundException) when (AppConfig.Settings.SelectedListId != "@default")
             {
-                // The selected list was deleted in Google Tasks, so fall back to the default list
+                // The selected list was deleted elsewhere, so fall back to the default list
                 AppConfig.Settings.SelectedListId = "@default";
                 AppConfig.Save();
                 _isSyncingTasks = false;
-                await SyncTasksFromGoogle();
+                await SyncTasksFromRemote();
                 await PopulateTrayMenu();
             }
             catch (Exception ex)
             {
-                await HandleGoogleErrorAsync(ex);
+                await HandleSyncErrorAsync(ex);
             }
             finally
             {
@@ -306,27 +462,40 @@ namespace TasksBar
             }
         }
 
-        private async Task HandleGoogleErrorAsync(Exception ex)
+        private async Task HandleSyncErrorAsync(Exception ex)
         {
-            Debug.WriteLine($"Google Tasks request failed: {ex}");
+            Debug.WriteLine($"Task sync request failed: {ex}");
 
-            if (!GoogleAuthManager.IsSignInExpired(ex) || _isHandlingExpiredSignIn) return;
+            if (!Services.Sync.TaskSync.IsAuthError(ex) || _isHandlingExpiredSignIn) return;
 
             _isHandlingExpiredSignIn = true;
             try
             {
-                await GoogleAuthManager.ClearSavedLoginAsync();
-                _googleTasksService = null;
+                string service = Services.Sync.TaskSync.ProviderName;
+                await Services.Sync.TaskSync.ForgetSignInAsync();
 
-                var answer = System.Windows.MessageBox.Show(
-                    "Your Google sign-in has expired.\n\nSign in again now?",
-                    "TasksBar",
-                    System.Windows.MessageBoxButton.YesNo,
-                    System.Windows.MessageBoxImage.Warning);
-
-                if (answer == System.Windows.MessageBoxResult.Yes)
+                if (Services.Sync.TaskSync.Provider == Services.Sync.TaskSync.Google)
                 {
-                    await InitializeGoogleTasksAsync();
+                    var answer = System.Windows.MessageBox.Show(
+                        "Your Google sign-in has expired.\n\nSign in again now?",
+                        "TasksBar",
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Warning);
+
+                    if (answer == System.Windows.MessageBoxResult.Yes)
+                    {
+                        await InitializeSyncAsync();
+                    }
+                }
+                else
+                {
+                    // An app password can't be renewed from here; it has to be entered again
+                    System.Windows.MessageBox.Show(
+                        $"{service} no longer accepts the saved app password (it may have been revoked).\n\n" +
+                        "Open Settings → Behavior & Sync and connect again with a new app password.",
+                        "TasksBar",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
                 }
             }
             finally
@@ -335,21 +504,21 @@ namespace TasksBar
             }
         }
 
-        // Runs a single task-level Google call. A task that was already deleted or completed elsewhere
+        // Runs a single task-level sync call. A task that was already deleted or completed elsewhere
         // just gets refreshed away, and any other failure is reported instead of crashing.
-        private async Task RunGoogleTaskRequest(Func<Task> request)
+        private async Task RunSyncRequest(Func<Task> request)
         {
             try
             {
                 await request();
             }
-            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound || ex.HttpStatusCode == System.Net.HttpStatusCode.Gone)
+            catch (Services.Sync.RemoteNotFoundException)
             {
-                await SyncTasksFromGoogle();
+                await SyncTasksFromRemote();
             }
             catch (Exception ex)
             {
-                await HandleGoogleErrorAsync(ex);
+                await HandleSyncErrorAsync(ex);
             }
         }
 
@@ -357,41 +526,26 @@ namespace TasksBar
         {
             var downloaded = new List<TaskItem>();
 
-            var request = _googleTasksService.Tasks.List(AppConfig.Settings.SelectedListId);
-            request.ShowHidden = false;
-            request.ShowCompleted = AppConfig.Settings.ShowCompletedTasks;
-            request.MaxResults = 100; // Force Google to send the maximum batch size
-
-            // Loop to fetch all pages if the user has hundreds of tasks
-            do
+            string? listId = await ResolveSelectedListAsync();
+            if (listId != null)
             {
-                var response = await request.ExecuteAsync();
-
-                if (response.Items != null)
+                var tasks = await _backend!.GetTasksAsync(listId, AppConfig.Settings.ShowCompletedTasks);
+                foreach (var remote in tasks)
                 {
-                    foreach (var gTask in response.Items)
+                    if (string.IsNullOrWhiteSpace(remote.Title)) continue;
+
+                    downloaded.Add(new TaskItem
                     {
-                        if (string.IsNullOrWhiteSpace(gTask.Title)) continue;
-                        if (!AppConfig.Settings.ShowCompletedTasks && gTask.Status == "completed") continue;
-
-                        var taskItem = new TaskItem
-                        {
-                            Id = gTask.Id,
-                            Title = gTask.Title,
-                            Details = gTask.Notes ?? "",
-                            IsCompleted = gTask.Status == "completed"
-                        };
-
-                        downloaded.Add(taskItem);
-                    }
+                        Id = remote.Id,
+                        Title = remote.Title,
+                        Details = remote.Notes,
+                        IsCompleted = remote.Completed,
+                        ParentId = remote.Parent
+                    });
                 }
+            }
 
-                // Grab the next page token. If it's null, the loop ends.
-                request.PageToken = response.NextPageToken;
-
-            } while (!string.IsNullOrEmpty(request.PageToken));
-
-            // Only swap the visible list once every page has arrived
+            // Only swap the visible list once everything has arrived
             foreach (var oldTask in MyTasks)
             {
                 oldTask.PropertyChanged -= OnTaskPropertyChanged;
@@ -437,9 +591,13 @@ namespace TasksBar
             var noteWindow = new StickyNoteWindow(this.Left - 260, this.Top);
             noteWindow.Show();
         }
+        // New tasks whose create request is still running, and those edited during it
+        private readonly HashSet<TaskItem> _creatingTasks = new HashSet<TaskItem>();
+        private readonly HashSet<TaskItem> _updateAfterCreate = new HashSet<TaskItem>();
+
         private async Task TaskItem_PropertyChanged(TaskItem item, string propertyName)
         {
-            if (!AppConfig.Settings.EnableGoogleSync)
+            if (!Services.Sync.TaskSync.IsEnabled)
             {
                 // Assign a fake ID so UI logic doesn't break, then save to JSON
                 if (item.Id == null) item.Id = Guid.NewGuid().ToString();
@@ -447,21 +605,41 @@ namespace TasksBar
                 return;
             }
 
-            if (_googleTasksService == null) return;
-
-            if (!AppConfig.Settings.EnableGoogleSync || _googleTasksService == null) return;
+            var backend = _backend;
+            if (backend == null) return;
 
             // SCENARIO 1: It's a new task (no ID) and you just finished typing the Title
             if (item.Id == null)
             {
+                // Still being created: editing the details meanwhile must not create a second copy,
+                // so remember to send the latest values once the create has finished
+                if (_creatingTasks.Contains(item))
+                {
+                    _updateAfterCreate.Add(item);
+                    return;
+                }
+
                 if ((propertyName == nameof(TaskItem.Title) || propertyName == nameof(TaskItem.Details)) && !string.IsNullOrWhiteSpace(item.Title))
                 {
-                    var newGTask = new Google.Apis.Tasks.v1.Data.Task { Title = item.Title, Notes = item.Details };
-                    await RunGoogleTaskRequest(async () =>
+                    var newTask = new Services.Sync.RemoteTask { Title = item.Title, Notes = item.Details ?? "" };
+                    _creatingTasks.Add(item);
+                    try
                     {
-                        var createdTask = await _googleTasksService.Tasks.Insert(newGTask, AppConfig.Settings.SelectedListId).ExecuteAsync();
-                        item.Id = createdTask.Id; // Save the real Google ID
-                    });
+                        await RunSyncRequest(async () =>
+                        {
+                            var createdTask = await backend.CreateTaskAsync(AppConfig.Settings.SelectedListId, newTask);
+                            item.Id = createdTask.Id; // Save the real remote ID
+                        });
+                    }
+                    finally
+                    {
+                        _creatingTasks.Remove(item);
+                    }
+
+                    if (_updateAfterCreate.Remove(item) && item.Id != null)
+                    {
+                        await TaskItem_PropertyChanged(item, nameof(TaskItem.Details));
+                    }
                 }
                 return;
             }
@@ -473,7 +651,7 @@ namespace TasksBar
                 // THE GHOST FIX: If they completely erased the title, delete the task!
                 if (string.IsNullOrWhiteSpace(item.Title))
                 {
-                    await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync());
+                await RunSyncRequest(() => backend.DeleteTaskAsync(AppConfig.Settings.SelectedListId, item.Id));
 
                     // Remove it from the UI thread safely
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -484,14 +662,14 @@ namespace TasksBar
                     return; // Stop here so it doesn't try to update!
                 }
 
-                var gTask = new Google.Apis.Tasks.v1.Data.Task
+                var update = new Services.Sync.RemoteTask
                 {
                     Id = item.Id,
                     Title = item.Title,
-                    Notes = item.Details,
-                    Status = item.IsCompleted ? "completed" : "needsAction"
+                    Notes = item.Details ?? "",
+                    Completed = item.IsCompleted
                 };
-                await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, item.Id).ExecuteAsync());
+                await RunSyncRequest(() => backend.UpdateTaskAsync(AppConfig.Settings.SelectedListId, update));
             }
         }
 
@@ -506,8 +684,8 @@ namespace TasksBar
 
             MyTasks.Insert(0, taskItem);
 
-            // THE IRON WALL: Only save to local JSON if Google is completely OFF
-            if (!AppConfig.Settings.EnableGoogleSync)
+            // THE IRON WALL: Only save to local JSON if sync is completely OFF
+            if (!Services.Sync.TaskSync.IsEnabled)
             {
                 LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
             }
@@ -589,23 +767,19 @@ namespace TasksBar
                     MyTasks.Remove(task);
                     LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
 
-                    if (!AppConfig.Settings.EnableGoogleSync)
-                    {
-                        LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
-                    }
-
                     ShowCustomToast(task.Title);
 
-                    if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null && task.Id != null)
+                    var backend = _backend;
+                    if (Services.Sync.TaskSync.IsEnabled && backend != null && task.Id != null)
                     {
-                        var gTask = new Google.Apis.Tasks.v1.Data.Task
+                        var completed = new Services.Sync.RemoteTask
                         {
                             Id = task.Id,
                             Title = task.Title,
-                            Notes = task.Details,
-                            Status = "completed"
+                            Notes = task.Details ?? "",
+                            Completed = true
                         };
-                        await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Update(gTask, AppConfig.Settings.SelectedListId, task.Id).ExecuteAsync());
+                        await RunSyncRequest(() => backend.UpdateTaskAsync(AppConfig.Settings.SelectedListId, completed));
                     }
                 }
             }
@@ -629,18 +803,18 @@ namespace TasksBar
                         Application.Current.Dispatcher.BeginInvoke(new Action(async () =>
                         {
                             MyTasks.Remove(taskToDelete);
-                            if (AppConfig.Settings.EnableGoogleSync)
+                            if (Services.Sync.TaskSync.IsEnabled)
                             {
-                                if (_googleTasksService != null && taskToDelete.Id != null)
+                                var backend = _backend;
+                                if (backend != null && taskToDelete.Id != null)
                                 {
-                                    await RunGoogleTaskRequest(() => _googleTasksService.Tasks.Delete(AppConfig.Settings.SelectedListId, taskToDelete.Id).ExecuteAsync());
+                                    await RunSyncRequest(() => backend.DeleteTaskAsync(AppConfig.Settings.SelectedListId, taskToDelete.Id));
                                 }
                             }
                             else
                             {
                                 LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                             }
-                            LocalDataManager.SaveTasks(MyTasks, AppConfig.Settings.SelectedListId);
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }
                 };
@@ -690,15 +864,13 @@ namespace TasksBar
         {
             var targets = new List<(string Id, string Title)>();
 
-            if (AppConfig.Settings.EnableGoogleSync)
+            if (Services.Sync.TaskSync.IsEnabled)
             {
-                if (_googleTasksService == null) return targets;
+                var backend = _backend;
+                if (backend == null) return targets;
                 try
                 {
-                    var request = _googleTasksService.Tasklists.List();
-                    request.MaxResults = 100;
-                    var response = await request.ExecuteAsync();
-                    foreach (var lst in response.Items ?? new List<Google.Apis.Tasks.v1.Data.TaskList>())
+                    foreach (var lst in await backend.GetListsAsync())
                     {
                         if (lst.Id == AppConfig.Settings.SelectedListId || Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                         targets.Add((lst.Id, lst.Title));
@@ -706,7 +878,7 @@ namespace TasksBar
                 }
                 catch (Exception ex)
                 {
-                    await HandleGoogleErrorAsync(ex);
+                    await HandleSyncErrorAsync(ex);
                 }
             }
             else
@@ -726,19 +898,18 @@ namespace TasksBar
             string sourceListId = AppConfig.Settings.SelectedListId;
             bool moved = false;
 
-            if (AppConfig.Settings.EnableGoogleSync)
+            if (Services.Sync.TaskSync.IsEnabled)
             {
-                if (_googleTasksService == null || task.Id == null) return;
+                var backend = _backend;
+                if (backend == null || task.Id == null) return;
 
-                await RunGoogleTaskRequest(async () =>
+                await RunSyncRequest(async () =>
                 {
-                    var request = _googleTasksService.Tasks.Move(sourceListId, task.Id);
-                    request.DestinationTasklist = destinationListId;
-                    await request.ExecuteAsync();
+                    await backend.MoveTaskAsync(sourceListId, task.Id, destinationListId);
                     moved = true;
                 });
 
-                if (!moved && _googleTasksService != null)
+                if (!moved && _backend != null)
                 {
                     System.Windows.MessageBox.Show(
                         $"Couldn't move \"{task.Title}\" to {destinationTitle}.\n\nCheck your connection and try again.",
@@ -760,7 +931,7 @@ namespace TasksBar
             {
                 task.PropertyChanged -= OnTaskPropertyChanged;
                 MyTasks.Remove(task);
-                if (!AppConfig.Settings.EnableGoogleSync)
+                if (!Services.Sync.TaskSync.IsEnabled)
                 {
                     LocalDataManager.SaveTasks(MyTasks, sourceListId);
                 }
@@ -781,8 +952,9 @@ namespace TasksBar
 
             _isOpeningSettings = true;
 
-            //Track the Google Sync setting instead of the deleted Completed Tasks setting
-            bool previousSyncState = AppConfig.Settings.EnableGoogleSync;
+            // Remember which sync account was in use, to notice a switch (e.g. Google to Tasks.org)
+            bool previousSyncState = Services.Sync.TaskSync.IsEnabled;
+            string previousAccount = Services.Sync.TaskSync.AccountKey;
 
             _settingsWindow = new SettingsWindow();
 
@@ -794,28 +966,31 @@ namespace TasksBar
                 UpdatePinIcon();
                 PlaySlideAnimation();
 
-                // If Google Sync is enabled, always grab the latest service from the manager
-                if (AppConfig.Settings.EnableGoogleSync)
+                if (Services.Sync.TaskSync.IsEnabled)
                 {
-                    // Update our local service in case they just logged in via Settings
-                    _googleTasksService = GoogleAuthManager.GetTasksService();
+                    bool accountChanged = previousAccount != Services.Sync.TaskSync.AccountKey;
 
-                    if (_googleTasksService == null)
+                    // Picks up a Google login made in Settings without opening the browser again
+                    if (_backend == null && !accountChanged) Services.Sync.TaskSync.ConnectWithoutPrompt();
+
+                    if (_backend == null || accountChanged)
                     {
-                        // If the service is null, they haven't logged in at all yet, so run the full init
-                        await InitializeGoogleTasksAsync();
+                        // Not connected yet, or a different service/account was chosen: run the full init
+                        await InitializeSyncAsync();
                     }
                     else
                     {
                         // Otherwise, just refresh the list!
-                        await SyncTasksFromGoogle();
+                        await SyncTasksFromRemote();
+                        await PopulateTrayMenu();
                         await Services.StickyNoteSync.SyncAsync();
                     }
                 }
-                else if (!AppConfig.Settings.EnableGoogleSync && previousSyncState)
+                else if (previousSyncState)
                 {
+                    Services.Sync.TaskSync.Disconnect();
                     MyTasks.Clear();
-                    LoadLocalTasks(); // Clear the UI if they just toggled sync off
+                    LoadLocalTasks(); // Show the local lists if they just turned sync off
                 }
             };
 
@@ -1021,17 +1196,14 @@ namespace TasksBar
         public async Task PopulateTrayMenu()
         {
             // 1. Fetch the data on the background thread FIRST
-            IList<Google.Apis.Tasks.v1.Data.TaskList> googleLists = null;
+            List<Services.Sync.RemoteList>? remoteLists = null;
+            var backend = _backend;
 
-            if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null)
+            if (Services.Sync.TaskSync.IsEnabled && backend != null)
             {
                 try
                 {
-                    var response = await _googleTasksService.Tasklists.List().ExecuteAsync();
-                    if (response != null)
-                    {
-                        googleLists = response.Items;
-                    }
+                    remoteLists = await backend.GetListsAsync();
                 }
                 catch { /* Failsafe if offline */ }
             }
@@ -1041,11 +1213,11 @@ namespace TasksBar
             {
                 _trayMenu.Items.Clear();
 
-                if (AppConfig.Settings.EnableGoogleSync && _googleTasksService != null)
+                if (Services.Sync.TaskSync.IsEnabled && backend != null)
                 {
-                    if (googleLists != null)
+                    if (remoteLists != null)
                     {
-                        foreach (var lst in googleLists)
+                        foreach (var lst in remoteLists)
                         {
                             if (Services.StickyNoteSync.IsNotesList(lst.Id, lst.Title)) continue;
                             var item = CreateTrayListItem(lst.Title, lst.Id == AppConfig.Settings.SelectedListId);
@@ -1053,7 +1225,7 @@ namespace TasksBar
                             {
                                 AppConfig.Settings.SelectedListId = lst.Id;
                                 AppConfig.Save();
-                                await SyncTasksFromGoogle();
+                                await SyncTasksFromRemote();
                                 await PopulateTrayMenu();
                                 OpenFlyoutFromTray();
                             };
